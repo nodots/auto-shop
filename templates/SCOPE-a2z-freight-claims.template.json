@@ -1,0 +1,22 @@
+{
+  "feature": "descriptive-feature-name",
+  "project": "a2z-freight-claims",
+  "branch": "feat/descriptive-feature-name",
+  "createdAt": "2026-02-23",
+  "allowedPaths": [
+    "src/{feature-area}/**",
+    "test/{feature-area}/**"
+  ],
+  "forbiddenPaths": [
+    "contracts/**",
+    "src/types/shared/**",
+    "package.json",
+    "package-lock.json",
+    "tsconfig.json",
+    ".env*",
+    ".github/**"
+  ],
+  "dependsOn": [],
+  "blockedBy": [],
+  "estimatedScope": "Small — brief description"
+}

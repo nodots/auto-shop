@@ -1,0 +1,21 @@
+{
+  "feature": "descriptive-feature-name",
+  "project": "project-emerald",
+  "branch": "feat/descriptive-feature-name",
+  "createdAt": "2026-02-23",
+  "allowedPaths": [
+    "packages/{package-name}/**"
+  ],
+  "forbiddenPaths": [
+    "contracts/**",
+    "package.json",
+    "package-lock.json",
+    "tsconfig.json",
+    "docker-compose.yml",
+    "Dockerfile",
+    ".github/**"
+  ],
+  "dependsOn": [],
+  "blockedBy": [],
+  "estimatedScope": "Small — brief description"
+}

@@ -1,0 +1,276 @@
+#!/usr/bin/env node
+
+/**
+ * auto-shop CLI
+ *
+ * Convenience tool for common coordinator workflows
+ *
+ * Usage:
+ *   auto-shop cell create <name>      Create a new feature cell
+ *   auto-shop cell list               List all cells
+ *   auto-shop cell teardown <name>    Clean up a feature cell
+ *   auto-shop queue show              Show merge queue
+ *   auto-shop queue next              Merge next cell
+ *   auto-shop help                    Show help
+ */
+
+const fs = require('fs');
+const path = require('path');
+const { execSync } = require('child_process');
+
+const REPO_ROOT = path.dirname(path.dirname(__filename));
+const MERGE_QUEUE_PATH = path.join(REPO_ROOT, 'MERGE_QUEUE.md');
+
+function log(message, color = 'reset') {
+  const colors = {
+    reset: '\x1b[0m',
+    green: '\x1b[32m',
+    red: '\x1b[31m',
+    yellow: '\x1b[33m',
+    blue: '\x1b[34m',
+  };
+  console.log(`${colors[color]}${message}${colors.reset}`);
+}
+
+function error(message) {
+  log(`✗ ${message}`, 'red');
+  process.exit(1);
+}
+
+function success(message) {
+  log(`✓ ${message}`, 'green');
+}
+
+function warn(message) {
+  log(`⚠ ${message}`, 'yellow');
+}
+
+function info(message) {
+  log(`ℹ ${message}`, 'blue');
+}
+
+function cellCreate(featureName) {
+  if (!featureName) {
+    error('Usage: auto-shop cell create <feature-name>');
+  }
+
+  const featureSlug = featureName.toLowerCase().replace(/[^a-z0-9]/g, '-');
+  const branchName = `feat/${featureSlug}`;
+  const schemaName = `feat_${featureSlug.replace(/-/g, '_')}`;
+
+  try {
+    // Create branch
+    info(`Creating branch: ${branchName}`);
+    execSync(`git checkout -b ${branchName}`, { cwd: REPO_ROOT, stdio: 'inherit' });
+
+    // Copy and edit SCOPE.json
+    info('Creating SCOPE.json');
+    const scopePath = path.join(REPO_ROOT, 'SCOPE.json');
+    const templatePath = path.join(REPO_ROOT, 'templates', 'SCOPE.json');
+
+    let scopeContent = fs.readFileSync(templatePath, 'utf8');
+    scopeContent = scopeContent
+      .replace('"descriptive-feature-name"', `"${featureName}"`)
+      .replace('"feat/descriptive-feature-name"', `"${branchName}"`)
+      .replace('"{feature-slug}"', `"${featureSlug}"`);
+
+    fs.writeFileSync(scopePath, scopeContent);
+
+    // Commit SCOPE.json
+    execSync(`git add SCOPE.json && git commit -m "Add SCOPE.json for ${branchName}"`, {
+      cwd: REPO_ROOT,
+      stdio: 'inherit'
+    });
+
+    // Run provisioning script
+    info(`Provisioning database schema: ${schemaName}`);
+    execSync(`./scripts/provision-feature-env.sh ${featureSlug}`, {
+      cwd: REPO_ROOT,
+      stdio: 'inherit'
+    });
+
+    success(`Cell created: ${branchName}`);
+    info(`Next: Create GitHub issue with feature-cell template`);
+    info(`      Launch agent session with: cat templates/agent-prompt.template.md`);
+
+  } catch (err) {
+    error(`Failed to create cell: ${err.message}`);
+  }
+}
+
+function cellList() {
+  try {
+    info('Fetching active cells from GitHub...');
+    const output = execSync('gh issue list --label cell:active --json number,title,labels', {
+      cwd: REPO_ROOT,
+      encoding: 'utf8'
+    });
+
+    const issues = JSON.parse(output);
+
+    if (issues.length === 0) {
+      info('No active cells');
+      return;
+    }
+
+    log('\nActive Cells:', 'blue');
+    issues.forEach(issue => {
+      log(`  #${issue.number}: ${issue.title}`);
+    });
+
+    log('\nQueued Cells:', 'blue');
+    const queuedOutput = execSync('gh issue list --label cell:queued --json number,title', {
+      cwd: REPO_ROOT,
+      encoding: 'utf8'
+    });
+    const queued = JSON.parse(queuedOutput);
+
+    if (queued.length === 0) {
+      info('(none)');
+    } else {
+      queued.forEach(issue => {
+        log(`  #${issue.number}: ${issue.title}`);
+      });
+    }
+
+    log('\nBlocked Cells:', 'blue');
+    const blockedOutput = execSync('gh issue list --label cell:blocked --json number,title', {
+      cwd: REPO_ROOT,
+      encoding: 'utf8'
+    });
+    const blocked = JSON.parse(blockedOutput);
+
+    if (blocked.length === 0) {
+      info('(none)');
+    } else {
+      blocked.forEach(issue => {
+        log(`  #${issue.number}: ${issue.title}`);
+      });
+    }
+
+  } catch (err) {
+    error(`Failed to list cells: ${err.message}`);
+  }
+}
+
+function cellTeardown(featureName) {
+  if (!featureName) {
+    error('Usage: auto-shop cell teardown <feature-name>');
+  }
+
+  const featureSlug = featureName.toLowerCase().replace(/[^a-z0-9]/g, '-');
+
+  try {
+    info(`Tearing down: ${featureSlug}`);
+    execSync(`./scripts/teardown-feature-env.sh ${featureSlug}`, {
+      cwd: REPO_ROOT,
+      stdio: 'inherit'
+    });
+    success(`Cell teardown complete: ${featureSlug}`);
+  } catch (err) {
+    error(`Teardown failed: ${err.message}`);
+  }
+}
+
+function queueShow() {
+  try {
+    if (!fs.existsSync(MERGE_QUEUE_PATH)) {
+      warn('MERGE_QUEUE.md not found');
+      info('Run: cp templates/MERGE_QUEUE.md MERGE_QUEUE.md');
+      return;
+    }
+
+    const queueContent = fs.readFileSync(MERGE_QUEUE_PATH, 'utf8');
+    log(queueContent);
+
+  } catch (err) {
+    error(`Failed to show queue: ${err.message}`);
+  }
+}
+
+function queueNext() {
+  warn('auto-shop queue next is not yet implemented');
+  info('For now, use docs/merge-procedure.md as a guide');
+}
+
+function showHelp() {
+  log(`
+auto-shop — Coordinator CLI for AI development cells
+
+USAGE:
+  auto-shop <command> [options]
+
+COMMANDS:
+  cell create <name>      Create a new feature cell
+                          - Creates branch: feat/<name>
+                          - Generates SCOPE.json
+                          - Provisions database schema
+
+  cell list               List all cells by status
+                          - Shows active cells
+                          - Shows queued cells
+                          - Shows blocked cells
+
+  cell teardown <name>    Clean up a feature cell
+                          - Drops database schema
+                          - Removes .env.local
+
+  queue show              Display the merge queue
+                          - Shows cells ready to merge
+                          - Shows merge order and dependencies
+
+  queue next              Merge the next cell in queue
+                          (Not yet implemented — use docs/merge-procedure.md)
+
+  help                    Show this help message
+
+EXAMPLES:
+  auto-shop cell create gnubg-hints
+  auto-shop cell list
+  auto-shop cell teardown gnubg-hints
+  auto-shop queue show
+
+DOCUMENTATION:
+  See docs/coordinator-workflow.md for detailed instructions
+  See docs/quickstart.md for getting started
+
+`, 'blue');
+}
+
+// Main
+const command = process.argv[2];
+const arg1 = process.argv[3];
+const arg2 = process.argv[4];
+
+switch (command) {
+  case 'cell':
+    if (arg1 === 'create') {
+      cellCreate(arg2);
+    } else if (arg1 === 'list') {
+      cellList();
+    } else if (arg1 === 'teardown') {
+      cellTeardown(arg2);
+    } else {
+      error('Usage: auto-shop cell <create|list|teardown>');
+    }
+    break;
+
+  case 'queue':
+    if (arg1 === 'show') {
+      queueShow();
+    } else if (arg1 === 'next') {
+      queueNext();
+    } else {
+      error('Usage: auto-shop queue <show|next>');
+    }
+    break;
+
+  case 'help':
+  case '--help':
+  case '-h':
+    showHelp();
+    break;
+
+  default:
+    showHelp();
+}

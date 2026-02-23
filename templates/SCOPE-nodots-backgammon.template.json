@@ -1,0 +1,22 @@
+{
+  "feature": "descriptive-feature-name",
+  "project": "nodots-backgammon",
+  "branch": "feat/descriptive-feature-name",
+  "createdAt": "2026-02-23",
+  "allowedPaths": [
+    "src/features/{feature-slug}/**",
+    "test/features/{feature-slug}/**"
+  ],
+  "forbiddenPaths": [
+    "contracts/**",
+    "src/types/shared/**",
+    "src/index.ts",
+    "package.json",
+    "package-lock.json",
+    "tsconfig.json",
+    ".github/**"
+  ],
+  "dependsOn": [],
+  "blockedBy": [],
+  "estimatedScope": "Small — brief description"
+}

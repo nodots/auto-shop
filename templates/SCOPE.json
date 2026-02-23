@@ -1,0 +1,20 @@
+{
+  "feature": "",
+  "project": "",
+  "branch": "feat/",
+  "createdAt": "",
+  "allowedPaths": [],
+  "forbiddenPaths": [
+    "contracts/**",
+    "src/types/shared/**",
+    "package.json",
+    "package-lock.json",
+    "tsconfig.json",
+    "tsconfig.*.json",
+    ".github/**",
+    "scripts/**"
+  ],
+  "dependsOn": [],
+  "blockedBy": [],
+  "estimatedScope": ""
+}

@@ -1,0 +1,27 @@
+{
+  "feature": "phase1-pilot-coordination-system-test",
+  "project": "auto-shop",
+  "branch": "feat/phase1-pilot",
+  "createdAt": "2026-02-23",
+  "allowedPaths": [
+    "docs/examples/**",
+    "test/pilot/**",
+    "SCOPE.json",
+    "BLOCKER.md",
+    "HANDOFF.md"
+  ],
+  "forbiddenPaths": [
+    "contracts/**",
+    "scripts/**",
+    "package.json",
+    "package-lock.json",
+    "tsconfig.json",
+    ".github/**",
+    ".husky/**",
+    "templates/**",
+    "README.md"
+  ],
+  "dependsOn": [],
+  "blockedBy": [],
+  "estimatedScope": "Small — Phase 1 coordination system validation (pilot test)"
+}

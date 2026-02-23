@@ -1,0 +1,60 @@
+name: Feature Branch CI
+
+on:
+  push:
+    branches:
+      - 'feat/**'
+      - 'contract/**'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - run: npm ci
+
+      - name: TypeScript
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test
+
+      - name: Scope manifest present
+        run: |
+          if [ ! -f SCOPE.json ]; then
+            echo "❌ SCOPE.json missing from feature branch"
+            exit 1
+          fi
+
+  integration-check:
+    runs-on: ubuntu-latest
+    needs: validate
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Rebase onto main and test
+        run: |
+          git config user.email "ci@nodots.dev"
+          git config user.name "CI"
+          git fetch origin ${{ github.ref_name }}
+          git checkout ${{ github.ref_name }}
+          git rebase origin/main
+          npm ci
+          npm test

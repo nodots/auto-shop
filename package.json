@@ -1,0 +1,13 @@
+{
+  "name": "code-shop",
+  "version": "1.0.0",
+  "description": "Coordination Layer for Multi-Project Agentic AI-Driven Software Development",
+  "private": true,
+  "scripts": {
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "husky": "^9.1.7",
+    "minimatch": "^9.0.6"
+  }
+}

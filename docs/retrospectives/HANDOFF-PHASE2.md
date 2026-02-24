@@ -102,7 +102,6 @@ feat/phase1-pilot — Pilot feature cell (PR #21 - draft, not merged)
 **Templates (9 files)**
 - `templates/SCOPE.json.template` (generic)
 - `templates/SCOPE-nodots-backgammon.template.json`
-- `templates/SCOPE-project-emerald.template.json`
 - `templates/SCOPE-a2z-freight-claims.template.json`
 - `templates/agent-prompt.template.md`
 - `templates/BLOCKER.md.template`

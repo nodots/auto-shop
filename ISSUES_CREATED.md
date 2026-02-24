@@ -159,7 +159,6 @@ Meta-tracking issue that aggregates all work. Links to all phase issues, documen
 - Analyze scope violations from completed cells
 - Create project-specific SCOPE.json templates:
   - `templates/SCOPE-nodots-backgammon.template.json`
-  - `templates/SCOPE-project-emerald.template.json`
   - `templates/SCOPE-a2z-freight-claims.template.json`
 - Create `docs/scope-design-guide.md` (decision tree)
 - Update `templates/README.md` with patterns
@@ -268,7 +267,6 @@ Issues reference these files (to be created during implementation):
 **Templates:**
 - `templates/SCOPE.json.template`
 - `templates/SCOPE-nodots-backgammon.template.json`
-- `templates/SCOPE-project-emerald.template.json`
 - `templates/SCOPE-a2z-freight-claims.template.json`
 - `templates/agent-prompt.template.md`
 - `templates/BLOCKER.md.template`

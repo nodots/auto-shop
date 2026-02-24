@@ -137,21 +137,6 @@ Pre-filled SCOPE.json template for nodots-backgammon project.
 ]
 ```
 
-### SCOPE-project-emerald.template.json
-Pre-filled SCOPE.json template for project-emerald.
-
-**Structure:**
-- Monorepo with packages
-- Each package in `packages/{name}/`
-- Shared config at root (forbidden)
-
-**Typical allowedPaths:**
-```json
-[
-  "packages/{package-name}/**"
-]
-```
-
 ### SCOPE-a2z-freight-claims.template.json
 Pre-filled SCOPE.json template for a2z-freight-claims.
 
@@ -195,11 +180,6 @@ Pre-filled SCOPE.json template for a2z-freight-claims.
 - **Dependencies within scope:** Common (gnubg → core → ai)
 - **Shared types:** Centralized in `src/types/shared/`
 - **Strategy:** Keep allowedPaths narrow per feature
-
-### project-emerald
-- **Dependencies within scope:** Rare (mostly independent packages)
-- **Shared types:** Minimal (each package is self-contained)
-- **Strategy:** allowedPaths can be broader (entire package)
 
 ### a2z-freight-claims
 - **Dependencies within scope:** Moderate (email, claims, integrations)

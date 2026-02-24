@@ -6,11 +6,10 @@
 Cell 1: gnubg-hints       ──┐
 Cell 2: backgammon-core   ──┤ sequential (must run in order)
 Cell 3: backgammon-ai     ──┘
-Cell 4: project-emerald   ── parallel (start anytime)
-Cell 5: a2z email         ── parallel (start anytime)
+Cell 4: a2z email         ── parallel (start anytime)
 ```
 
-Start cells 4 and 5 immediately. Start cell 1 immediately. Do NOT start cell 2 until cell 1's PR is merged. Do NOT start cell 3 until cell 2's PR is merged.
+Start cell 4 immediately. Start cell 1 immediately. Do NOT start cell 2 until cell 1's PR is merged. Do NOT start cell 3 until cell 2's PR is merged.
 
 ---
 
@@ -263,103 +262,7 @@ Do not ask for confirmation before starting.
 
 ---
 
-## Cell 4 — Project Emerald: Docker-Deployable Client Instances
-
-> ✅ Start immediately — no dependencies.
-
-### SCOPE.json
-```json
-{
-  "feature": "docker-client-instances",
-  "project": "project-emerald",
-  "branch": "feat/docker-client-instances",
-  "createdAt": "2026-02-21",
-  "allowedPaths": [
-    "src/**",
-    "docker/**",
-    "Dockerfile",
-    "Dockerfile.*",
-    "docker-compose*.yml",
-    "tests/**",
-    "*.md"
-  ],
-  "forbiddenPaths": [
-    "contracts/**",
-    "*.csproj",
-    "*.sln",
-    "global.json",
-    ".github/**"
-  ],
-  "dependsOn": [],
-  "blockedBy": [],
-  "estimatedScope": "Create Emerald client instances that can be built as Docker images and run with simulated inputs for testing"
-}
-```
-
-> ⚠️ Adjust `allowedPaths` to match your actual Emerald repo structure before starting.
-
-### Agent Prompt
-```
-You are an AI developer working on Project Emerald.
-
-## Your Assignment
-Feature: Docker-deployable Emerald client instances with simulated inputs
-Project: project-emerald
-Branch: feat/docker-client-instances
-
-## Before You Start
-1. Read SCOPE.json
-2. Read HANDOFF.md if it exists
-3. Explore the existing codebase structure before writing any code
-
-## Context
-Project Emerald is a .NET 7 application. You need to create client instances that can be:
-- Built as Docker images
-- Deployed and run as containers
-- Configured to operate with simulated inputs (rather than real external inputs) for testing purposes
-
-The goal is to enable isolated testing of client instances without requiring live external dependencies.
-
-## What to Build
-- Dockerfile(s) for building Emerald client instances
-- Simulated input mechanism — a configurable input provider that replaces real inputs with test data during Docker runs
-- docker-compose configuration for spinning up one or more client instances locally
-- README or runbook documenting how to build, run, and configure instances
-- The simulated input data should be configurable via environment variables or a mounted config file
-
-## Design Principles
-- Simulated mode should be toggled by an environment variable (e.g., EMERALD_INPUT_MODE=simulated)
-- Real input providers should be untouched — simulated is an additive layer
-- Docker images should be lean — use multi-stage builds
-- Follow existing .NET 7 patterns in the codebase
-
-## Boundaries & Stopping Conditions
-You are constrained to the paths in SCOPE.json allowedPaths. Before modifying any file, verify it matches an allowed glob. If it does not, stop.
-
-Stop and write a clear description to BLOCKER.md if:
-- You need to modify .csproj, .sln, or global.json files
-- The existing architecture makes additive simulated input impractical — describe why
-- Docker build fails after two distinct fix attempts
-- You face a design decision about simulated input shape that requires domain knowledge
-
-When complete (Docker builds successfully, simulated inputs work, instances run as containers):
-1. Write HANDOFF.md
-2. Open a draft PR titled [READY]: Docker client instances with simulated inputs
-3. Stop
-
-## Technical Context
-- .NET 7
-- Docker multi-stage builds preferred
-- Environment variable configuration for simulated mode
-- Build image: dotnet/sdk:7.0
-- Runtime image: dotnet/aspnet:7.0
-
-Do not ask for confirmation before starting.
-```
-
----
-
-## Cell 5 — A2Z Freight Claims: Microsoft/Azure Email Support
+## Cell 4 — A2Z Freight Claims: Microsoft/Azure Email Support
 
 > ✅ Start immediately — no dependencies.
 
@@ -484,5 +387,4 @@ For each cell, before starting the agent:
 | 1 | gnubg-hints (`nodots/gnubg-hints`) | queued | — |
 | 2 | backgammon-core | queued | Cell 1 merged |
 | 3 | backgammon-ai | queued | Cell 2 merged |
-| 4 | project-emerald | queued | — |
-| 5 | a2z-freight-claims | queued | — |
+| 4 | a2z-freight-claims | queued | — |

@@ -43,7 +43,7 @@ Phase 1 foundation successfully validated. All core infrastructure, documentatio
 Scope manifest was accurate. The narrow scope (docs/examples/, test/pilot/) with broad forbiddenPaths worked exactly as intended to protect infrastructure while allowing feature work.
 
 **Lesson for next time:**
-Template approach works well. Project-specific templates (nodots-backgammon, project-emerald, a2z-freight-claims) should reduce need for scope adjustments.
+Template approach works well. Project-specific templates (nodots-backgammon, a2z-freight-claims) should reduce need for scope adjustments.
 
 ---
 

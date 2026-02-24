@@ -8,7 +8,7 @@ Configure Railway to support automatic preview environments for feature branches
 
 ## Step 1: Enable Preview Environments
 
-For each Railway project (nodots-backgammon, project-emerald, a2z-freight-claims):
+For each Railway project (nodots-backgammon, a2z-freight-claims):
 
 1. Go to **Settings** (gear icon) in the Railway dashboard
 2. Find **Preview Deployments** section

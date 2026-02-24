@@ -183,19 +183,7 @@ Use this tree to design SCOPE.json for any feature.
 
 **Why:** Keeps related code and tests together. `**` captures subfolders.
 
-### Pattern 2: Package in Monorepo
-
-**Feature:** Add email template package in project-emerald
-
-```json
-"allowedPaths": [
-  "packages/email-templates/**"
-]
-```
-
-**Why:** Entire package is in scope. No cross-package contamination.
-
-### Pattern 3: Feature with Multiple Concerns
+### Pattern 2: Feature with Multiple Concerns
 
 **Feature:** Authentication system (login + signup + password reset)
 
@@ -472,26 +460,6 @@ test/
   "test/features/{feature-name}/**"
 ]
 ```
-
-### project-emerald
-
-**Standard structure:**
-```
-packages/
-  {package-name}/
-    src/
-    test/
-    package.json (allowed within package)
-```
-
-**Standard allowedPaths:**
-```json
-"allowedPaths": [
-  "packages/{package-name}/**"
-]
-```
-
-**Note:** Each package has its own package.json, which IS allowed in this pattern.
 
 ### a2z-freight-claims
 

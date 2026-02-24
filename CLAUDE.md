@@ -185,7 +185,6 @@ Status: [blocked | complete]
 This repository documents the coordination system used across multiple projects:
 
 - **nodots-backgammon** — Three sequential cells (gnubg-hints → backgammon-core → backgammon-ai)
-- **project-emerald** — Docker containerization (independent)
 - **a2z-freight-claims** — Email provider integration (independent)
 
 Each project has its own repository and SCOPE.json files. This repository (`auto-shop`) is purely documentation and coordination.
@@ -317,7 +316,6 @@ To restart an existing cell after an agent session ends:
 
 **Project-Specific Templates:**
 - `templates/SCOPE-nodots-backgammon.template.json` — For nodots-backgammon project
-- `templates/SCOPE-project-emerald.template.json` — For project-emerald
 - `templates/SCOPE-a2z-freight-claims.template.json` — For a2z-freight-claims
 
 ### GitHub Automation
@@ -438,13 +436,6 @@ For detailed guidance, see **docs/scope-design-guide.md**
 "allowedPaths": [
   "src/features/{feature-name}/**",
   "test/features/{feature-name}/**"
-]
-```
-
-**project-emerald:**
-```json
-"allowedPaths": [
-  "packages/{package-name}/**"
 ]
 ```
 

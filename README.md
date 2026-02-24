@@ -94,7 +94,6 @@ auto-shop/
 ## Projects Using This System
 
 - **nodots-backgammon** — Backgammon AI and UI
-- **project-emerald** — Docker containerization
 - **a2z-freight-claims** — Email provider integration
 
 ---

@@ -100,21 +100,6 @@ Changes implemented based on retrospectives.
 **Template adjustments needed:**
 - [Update to SCOPE-nodots-backgammon.template.json]
 
-### project-emerald
-
-**Status:** [Not yet evaluated]
-
-**Patterns observed:**
-- [Observation 1]
-- [Observation 2]
-
-**Typical cell duration:** [X days]
-**Typical scope size:** [Small/Medium/Large]
-**Common dependencies:** [Rare/frequent]
-
-**Template adjustments needed:**
-- [Update to SCOPE-project-emerald.template.json]
-
 ### a2z-freight-claims
 
 **Status:** [Not yet evaluated]
@@ -186,7 +171,6 @@ How well templates predict actual work.
 | Project | Violations | False Positives | Needs Updating |
 |---------|-----------|-----------------|----------------|
 | nodots-backgammon | 0 | 0 | No |
-| project-emerald | 0 | 0 | No |
 | a2z-freight-claims | 0 | 0 | No |
 
 **Improvement:** Update templates based on first few cells in each project.

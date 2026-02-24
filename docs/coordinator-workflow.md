@@ -242,8 +242,7 @@ Add to EVENING_LOG.md:
 - Cell A (gnubg-hints) — Merged, tagged, torn down ✓
 
 **Prep for tomorrow:**
-- Pre-wrote SCOPE for Cell F (project-emerald)
-- Pre-wrote SCOPE for Cell G (a2z-claims)
+- Pre-wrote SCOPE for Cell F (a2z-claims)
 
 **Status:** On track. No blockers. All tests passing.
 ```
@@ -375,7 +374,7 @@ Example Friday log:
 ```markdown
 ## Friday Review - 2026-02-28
 
-**Cells completed:** 6 (gnubg-hints, backgammon-core, backgammon-ai, emerald-docker, emerald-compose, claims-email)
+**Cells completed:** 4 (gnubg-hints, backgammon-core, backgammon-ai, claims-email)
 
 **Retrospective patterns:**
 - 3 cells violated scope (shared types) → Improved forbiddenPaths template

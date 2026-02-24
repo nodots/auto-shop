@@ -1,4 +1,4 @@
-# Active Cells — Feb 21, 2026
+# Active Cells — Feb 23, 2026
 
 ## Execution Order
 
@@ -16,26 +16,29 @@ Start cells 4 and 5 immediately. Start cell 1 immediately. Do NOT start cell 2 u
 
 ## Cell 1 — gnubg-hints: PR Calculation at gnubg Layer
 
+> gnubg-hints is a **separate repository** (`nodots/gnubg-hints`), not a package within nodots-backgammon.
+> It is cloned at `/Users/kenr/Code/nodots-backgammon/packages/gnubg-hints/` but has its own `.git`, branches, and remote.
+> The agent session should root at that directory.
+> GitHub issue: [nodots/gnubg-hints#13](https://github.com/nodots/gnubg-hints/issues/13)
+
 ### SCOPE.json
 ```json
 {
   "feature": "pr-calculation-gnubg",
-  "project": "nodots-backgammon",
+  "project": "gnubg-hints",
   "branch": "feat/pr-calculation-gnubg",
-  "createdAt": "2026-02-21",
+  "createdAt": "2026-02-23",
   "allowedPaths": [
-    "src/**",
-    "bindings/**",
-    "include/**",
-    "test/**",
-    "__tests__/**"
+    "gnubg-node-addon/src/**",
+    "gnubg-node-addon/include/**",
+    "gnubg-node-addon/test/**",
+    "gnubg-node-addon/lib/**"
   ],
   "forbiddenPaths": [
-    "contracts/**",
-    "package.json",
-    "package-lock.json",
-    "binding.gyp",
-    "tsconfig.json",
+    "gnubg-node-addon/binding.gyp",
+    "gnubg-node-addon/tsconfig.json",
+    "gnubg-node-addon/package.json",
+    "gnubg-node-addon/package-lock.json",
     ".github/**"
   ],
   "dependsOn": [],
@@ -44,28 +47,27 @@ Start cells 4 and 5 immediately. Start cell 1 immediately. Do NOT start cell 2 u
 }
 ```
 
-> ⚠️ Verify `allowedPaths` match your actual gnubg-hints directory structure before starting the agent.
+> Paths in SCOPE.json are relative to the gnubg-hints repo root, not nodots-backgammon.
 
 ### Agent Prompt
 ```
-You are an AI developer working on the Nodots backgammon ecosystem.
+You are an AI developer working on the gnubg-hints project.
 
 ## Your Assignment
 Feature: Expose PR (Performance Rating) calculation through the gnubg N-API layer
-Project: nodots-backgammon
-Package: gnubg-hints
+Project: gnubg-hints (repo: nodots/gnubg-hints)
 Branch: feat/pr-calculation-gnubg
 
 ## Before You Start
-1. Read SCOPE.json — it defines exactly what you are and are not allowed to touch
-2. Explore the existing N-API bindings to understand the current pattern for exposing gnubg functions to Node.js
+1. Read SCOPE.json at the repo root — it defines exactly what you are and are not allowed to touch
+2. Explore the existing N-API bindings in gnubg-node-addon/ to understand the current pattern for exposing gnubg functions to Node.js
 
 ## Context
-gnubg-hints wraps the GNU Backgammon evaluation engine via N-API, exposing analysis functions to TypeScript. You need to expose PR calculation from gnubg through the same N-API pattern already used for move evaluation. The PR values will be consumed by backgammon-core and backgammon-ai in upstream packages — keep the output shape simple and well-typed.
+gnubg-hints wraps the GNU Backgammon evaluation engine via N-API, exposing analysis functions to TypeScript. The Node.js addon code lives in `gnubg-node-addon/`. You need to expose PR calculation from gnubg through the same N-API pattern already used for move evaluation. The PR values will be consumed by backgammon-core and backgammon-ai in the nodots-backgammon project — keep the output shape simple and well-typed.
 
 ## What to Build
 - Identify the relevant gnubg PR calculation function(s)
-- Expose them via N-API following the existing binding pattern in the repo
+- Expose them via N-API following the existing binding pattern in gnubg-node-addon/
 - Export TypeScript type definitions for the new function(s)
 - Write tests covering the new bindings
 - Do not modify any existing bindings — additions only
@@ -87,9 +89,9 @@ When complete (bindings working, types exported, tests pass, build succeeds):
 
 ## Technical Context
 - N-API native addon for Node.js
-- TypeScript definitions alongside bindings
-- Build with node-gyp
-- Run tests with: npm test
+- TypeScript definitions alongside bindings in gnubg-node-addon/
+- Build with node-gyp (from gnubg-node-addon/)
+- Run tests with: cd gnubg-node-addon && npm test
 
 Do not ask for confirmation before starting. Begin by exploring the existing binding structure.
 ```
@@ -479,7 +481,7 @@ For each cell, before starting the agent:
 
 | Cell | Repo | Status | Depends On |
 |---|---|---|---|
-| 1 | gnubg-hints | queued | — |
+| 1 | gnubg-hints (`nodots/gnubg-hints`) | queued | — |
 | 2 | backgammon-core | queued | Cell 1 merged |
 | 3 | backgammon-ai | queued | Cell 2 merged |
 | 4 | project-emerald | queued | — |

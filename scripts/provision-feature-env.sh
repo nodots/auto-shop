@@ -3,7 +3,7 @@
 
 FEATURE_SLUG=$1
 SCHEMA_NAME="feat_${FEATURE_SLUG//-/_}"
-DB_URL=${DATABASE_URL:-"postgresql://localhost:5432/nodots_dev"}
+DB_URL=${DATABASE_URL:-"postgresql://localhost:5432/nodots_backgammon_dev"}
 
 if [ -z "$FEATURE_SLUG" ]; then
   echo "Usage: $0 <feature-slug>"

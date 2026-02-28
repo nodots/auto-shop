@@ -54,6 +54,13 @@ function cellCreate(featureName) {
     error('Usage: auto-shop cell create <feature-name>');
   }
 
+  const cwd = process.cwd();
+
+  // Verify cwd is a git repo
+  if (!fs.existsSync(path.join(cwd, '.git'))) {
+    error('Current directory is not a git repository. Run this command from the target project root.');
+  }
+
   const featureSlug = featureName.toLowerCase().replace(/[^a-z0-9]/g, '-');
   const branchName = `feat/${featureSlug}`;
   const schemaName = `feat_${featureSlug.replace(/-/g, '_')}`;
@@ -61,31 +68,30 @@ function cellCreate(featureName) {
   try {
     // Create branch
     info(`Creating branch: ${branchName}`);
-    execSync(`git checkout -b ${branchName}`, { cwd: REPO_ROOT, stdio: 'inherit' });
+    execSync(`git checkout -b ${branchName}`, { cwd, stdio: 'inherit' });
 
-    // Copy and edit SCOPE.json
+    // Generate SCOPE.json from template
     info('Creating SCOPE.json');
-    const scopePath = path.join(REPO_ROOT, 'SCOPE.json');
     const templatePath = path.join(REPO_ROOT, 'templates', 'SCOPE.json');
+    const scope = JSON.parse(fs.readFileSync(templatePath, 'utf8'));
+    scope.feature = featureName;
+    scope.branch = branchName;
+    scope.createdAt = new Date().toISOString().slice(0, 10);
 
-    let scopeContent = fs.readFileSync(templatePath, 'utf8');
-    scopeContent = scopeContent
-      .replace('"descriptive-feature-name"', `"${featureName}"`)
-      .replace('"feat/descriptive-feature-name"', `"${branchName}"`)
-      .replace('"{feature-slug}"', `"${featureSlug}"`);
-
-    fs.writeFileSync(scopePath, scopeContent);
+    const scopePath = path.join(cwd, 'SCOPE.json');
+    fs.writeFileSync(scopePath, JSON.stringify(scope, null, 2) + '\n');
 
     // Commit SCOPE.json
     execSync(`git add SCOPE.json && git commit -m "Add SCOPE.json for ${branchName}"`, {
-      cwd: REPO_ROOT,
+      cwd,
       stdio: 'inherit'
     });
 
     // Run provisioning script
+    const provisionScript = path.join(REPO_ROOT, 'scripts', 'provision-feature-env.sh');
     info(`Provisioning database schema: ${schemaName}`);
-    execSync(`./scripts/provision-feature-env.sh ${featureSlug}`, {
-      cwd: REPO_ROOT,
+    execSync(`"${provisionScript}" ${featureSlug}`, {
+      cwd,
       stdio: 'inherit'
     });
 

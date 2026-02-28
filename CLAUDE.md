@@ -238,6 +238,13 @@ Before launching each cell:
 
 Maintain a personal limit of **4 active cells maximum** at any time. More than 4 makes the morning/evening coordination sessions unrealistic.
 
+## Recommended Models
+
+- **Opus 4.6** — Cell workers (feature implementation, complex reasoning)
+- **Sonnet 4.5** — Lightweight validation, scope checks, PR review assistance
+
+Cell worker subagent files specify their model in YAML frontmatter. Override per-session if needed.
+
 ## Status Labels (GitHub)
 
 - `cell:queued` — Ready to start, waiting for capacity
@@ -301,6 +308,8 @@ To restart an existing cell after an agent session ends:
 | **docs/scope-design-guide.md** | Decision tree for writing SCOPE.json | Coordinators, agents |
 | **docs/contract-workflow.md** | How to request and approve contract changes | Coordinators, agents |
 | **docs/railway-setup.md** | Configure Railway for preview environments | DevOps, coordinators |
+| **docs/agent-teams.md** | Using Agent Teams for within-cell parallelism | Coordinators, agents |
+| **docs/context-management.md** | Context window, compaction, and file-based artifacts | Agents |
 
 ### Templates
 
@@ -308,7 +317,9 @@ To restart an existing cell after an agent session ends:
 |------|---------|------------|
 | **templates/SCOPE.json** | Generic scope manifest | Starting any feature cell |
 | **templates/SCOPE-{project}.json** | Project-specific templates | See naming convention below |
-| **templates/agent-prompt.template.md** | Standard agent session prompt | Launching agent sessions |
+| **templates/agent-prompt.template.md** | Standard agent session prompt (legacy) | Launching agent sessions |
+| **templates/agents/cell-worker.md** | Subagent definition for cell workers | Launching agent sessions |
+| **templates/agents/README.md** | How to use subagent templates | Understanding agent templates |
 | **templates/BLOCKER.md** | Blocker notification template | When agent hits stopping condition |
 | **templates/HANDOFF.md** | Feature completion template | When feature is complete or paused |
 | **templates/MERGE_QUEUE.md** | Merge queue template | Evening coordinator session |

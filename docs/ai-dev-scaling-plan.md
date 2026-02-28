@@ -621,10 +621,13 @@ This gives the coordinator a quick glance at the history of a cell without readi
 | Git + GitHub | Branch isolation, PRs, issue tracking |
 | GitHub Issues | Work queue with standardized templates |
 | GitHub Actions | CI on every push, integration check against main |
-| Husky + pre-commit hook | Scope enforcement at commit time |
+| Husky + pre-commit hook | Scope enforcement at commit time (fallback) |
+| Claude Code PreToolUse hook | Scope enforcement at edit time (primary) |
+| Claude Code subagent files | Cell worker agent definitions (`.claude/agents/`) |
 | PostgreSQL schemas | Database isolation per feature cell |
 | Railway Preview Environments | Deployed preview per branch |
-| Cursor | AI agent IDE; one chat thread per cell |
+| Claude Code (Opus 4.6) | Cell workers — feature implementation |
+| Claude Code (Sonnet 4.5) | Lightweight validation, scope checks, PR review |
 | `SCOPE.json` | Declarative scope per branch |
 | `BLOCKER.md` | Agent-to-human async communication |
 | `HANDOFF.md` | Session-to-session context preservation |

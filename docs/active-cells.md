@@ -384,7 +384,7 @@ For each cell, before starting the agent:
 
 | Cell | Repo | Status | Depends On |
 |---|---|---|---|
-| 1 | gnubg-hints (`nodots/gnubg-hints`) | queued | — |
+| 1 | gnubg-hints (`nodots/gnubg-hints`) | **active** | — |
 | 2 | backgammon-core | queued | Cell 1 merged |
 | 3 | backgammon-ai | queued | Cell 2 merged |
 | 4 | a2z-freight-claims | queued | — |

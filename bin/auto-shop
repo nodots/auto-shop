@@ -188,6 +188,21 @@ function queueShow() {
   }
 }
 
+function infraSetup(repoPath, projectName) {
+  if (!repoPath || !projectName) {
+    error('Usage: auto-shop infra setup <repo-path> <project-name>');
+  }
+
+  const setupScript = path.join(REPO_ROOT, 'scripts', 'setup-claude-infra.sh');
+  try {
+    execSync(`bash "${setupScript}" "${repoPath}" "${projectName}"`, {
+      stdio: 'inherit'
+    });
+  } catch (err) {
+    error(`Infrastructure setup failed: ${err.message}`);
+  }
+}
+
 function queueNext() {
   warn('auto-shop queue next is not yet implemented');
   info('For now, use docs/merge-procedure.md as a guide');
@@ -222,12 +237,19 @@ COMMANDS:
   queue next              Merge the next cell in queue
                           (Not yet implemented — use docs/merge-procedure.md)
 
+  infra setup <path> <name>  Set up Claude Code hooks and agent in a repo
+                          - Creates .claude/hooks/ with scope enforcement
+                          - Creates .claude/agents/ with cell-worker template
+                          - Generates .claude/settings.json
+                          - Installs minimatch if needed
+
   help                    Show this help message
 
 EXAMPLES:
   auto-shop cell create gnubg-hints
   auto-shop cell list
   auto-shop cell teardown gnubg-hints
+  auto-shop infra setup /path/to/repo my-project
   auto-shop queue show
 
 DOCUMENTATION:
@@ -262,6 +284,14 @@ switch (command) {
       queueNext();
     } else {
       error('Usage: auto-shop queue <show|next>');
+    }
+    break;
+
+  case 'infra':
+    if (arg1 === 'setup') {
+      infraSetup(arg2, process.argv[5]);
+    } else {
+      error('Usage: auto-shop infra <setup>');
     }
     break;
 

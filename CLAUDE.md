@@ -351,9 +351,11 @@ To restart an existing cell after an agent session ends:
 | Script | Purpose |
 |--------|---------|
 | **scripts/enforce-scope.js** | Pre-commit hook that validates SCOPE.json |
+| **scripts/setup-claude-infra.sh** | Install Claude Code hooks and agent in a target repo |
+| **scripts/hooks/** | Canonical hook scripts copied by setup-claude-infra.sh |
 | **scripts/provision-feature-env.sh** | Provision database schema for feature |
 | **scripts/teardown-feature-env.sh** | Clean up database schema after merge |
-| **bin/auto-shop** | CLI tool for coordinator workflows (if implemented) |
+| **bin/auto-shop** | CLI tool for coordinator workflows |
 
 ---
 

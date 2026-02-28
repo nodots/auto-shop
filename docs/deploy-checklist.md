@@ -1,6 +1,16 @@
 # Deploy Checklist: nodots-backgammon on Railway
 
-Target: Get nodots-backgammon (API + Client) running on Railway with auto-shop cell infrastructure, then launch Cell 1 (gnubg-hints PR calculation).
+Target: Get nodots-backgammon (API + Client) running on Railway with Railway PostgreSQL, auto-shop cell infrastructure, then launch Cell 1 (gnubg-hints PR calculation).
+
+---
+
+## Decisions Made
+
+- **API Dockerfile**: Rewrite to workspace-root pattern matching the client Dockerfile
+- **gnubg-hints in Docker**: API uses gnubg-hints at runtime — include native build deps (current npm package uses stubs, no .bd files needed yet; Cell 1 will add real gnubg integration)
+- **Database**: Railway PostgreSQL (same-network, no cross-provider latency)
+- **Preview environments**: Skip for now — production deploy only, add previews later
+- **API version**: `/api/v4.6`
 
 ---
 
@@ -9,18 +19,39 @@ Target: Get nodots-backgammon (API + Client) running on Railway with auto-shop c
 - [ ] Railway CLI authenticated (`railway whoami` → kenr@nodots.com)
 - [ ] GitHub CLI authenticated (`gh auth status`)
 - [ ] Access to Auth0 dashboard (nodots-backgammon tenant)
-- [ ] Render PostgreSQL connection string available
 - [ ] nodots-backgammon repo cloned and on main
 
 ---
 
-## Phase 1: Railway Services
+## Phase 1: Rewrite API Dockerfile
+
+The current API Dockerfile uses `node:18-alpine` and installs from `packages/api/` only. It needs the full workspace context to resolve `file:` dependencies, plus native build tools for gnubg-hints.
+
+- [ ] Update `packages/api/Dockerfile` to:
+  - Use `node:20-alpine` (match client)
+  - Install `python3 make g++` for node-gyp (gnubg-hints native addon)
+  - Copy all packages from workspace root
+  - Strip husky prepare scripts before install
+  - Install full workspace (gnubg-hints install script runs node-gyp rebuild)
+  - Build in order: types → core → ai → api-utils → api
+  - Run `npm run start:prod` (which runs migrations then starts)
+- [ ] Test locally: `docker build -f packages/api/Dockerfile .` from workspace root
+- [ ] Commit and push
+
+---
+
+## Phase 2: Railway Services
 
 Railway project `nodots-backgammon-api` exists but has no services.
 
+### PostgreSQL Service
+
+- [ ] In Railway dashboard, add a PostgreSQL plugin/service to the project
+- [ ] Note the `DATABASE_URL` Railway generates (available as `${{Postgres.DATABASE_URL}}`)
+
 ### API Service
 
-- [ ] In Railway dashboard, create a new service in the `nodots-backgammon-api` project
+- [ ] Create a new service in the `nodots-backgammon-api` project
 - [ ] Connect it to the `nodots/nodots-backgammon` GitHub repo
 - [ ] Set Dockerfile path: `packages/api/Dockerfile`
 - [ ] Leave root directory blank (workspace root)
@@ -28,7 +59,7 @@ Railway project `nodots-backgammon-api` exists but has no services.
 
 **API environment variables:**
 
-- [ ] `DATABASE_URL` — Render PostgreSQL connection string
+- [ ] `DATABASE_URL` = `${{Postgres.DATABASE_URL}}` (Railway variable reference)
 - [ ] `NODE_ENV` = `production`
 - [ ] `PORT` = `3000`
 - [ ] `AUTH0_DOMAIN` = `dev-8ykjldydiqcf2hqu.us.auth0.com`
@@ -58,26 +89,32 @@ Railway project `nodots-backgammon-api` exists but has no services.
 - [ ] `VITE_API_VERSION` = `v4.6`
 - [ ] `VITE_WS_URL` = `wss://${{api.RAILWAY_PUBLIC_DOMAIN}}/ws`
 
----
+### Auth0 Configuration
 
-## Phase 2: Fix the API Dockerfile
-
-The current API Dockerfile uses `node:18-alpine` and runs `npm ci` from the package root — but it needs the full workspace context (same approach as the client Dockerfile) to resolve `file:` dependencies on sibling packages. And gnubg-hints requires native compilation.
-
-- [ ] Update `packages/api/Dockerfile` to build from workspace root (copy all packages, install workspace)
-- [ ] Handle gnubg-hints native addon build (needs `python3`, `make`, `g++` in the build stage)
-- [ ] Ensure build order: types → api-utils → core → ai → api
-- [ ] Upgrade to `node:20-alpine` to match client Dockerfile
-- [ ] Test `docker build -f packages/api/Dockerfile .` from workspace root locally
-- [ ] Commit and push the Dockerfile update
+- [ ] Add the Railway API public URL to Auth0 allowed callback URLs
+- [ ] Add the Railway Client public URL to Auth0 allowed callback URLs
+- [ ] Add the Railway Client public URL to Auth0 allowed logout URLs
+- [ ] Add the Railway Client public URL to Auth0 allowed web origins
 
 ---
 
-## Phase 3: Deploy and Verify
+## Phase 3: Database Migration
+
+Migrate data from Render PostgreSQL to Railway PostgreSQL.
+
+- [ ] Export schema and data from Render: `pg_dump $RENDER_DATABASE_URL > backup.sql`
+- [ ] Import into Railway: `psql $RAILWAY_DATABASE_URL < backup.sql`
+- [ ] Verify row counts match on key tables
+- [ ] Or: skip data migration if starting fresh — Drizzle migrations will create schema on first `start:prod`
+
+---
+
+## Phase 4: Deploy and Verify
 
 ### API verification
 
 - [ ] Railway deploy succeeds (check build logs)
+- [ ] gnubg-hints native addon compiled in build stage
 - [ ] Drizzle migrations run on startup (`railway:migrate` in `start:prod`)
 - [ ] API health endpoint responds: `curl https://<api-url>/api/v4.6/health`
 - [ ] Auth0 token validation works (test with a real token)
@@ -96,22 +133,6 @@ The current API Dockerfile uses `node:18-alpine` and runs `npm ci` from the pack
 - [ ] Client `VITE_API_URL` resolves to the API service URL via Railway variable reference
 - [ ] CORS allows the client origin
 - [ ] Full login → create game → play a move flow works end-to-end
-
----
-
-## Phase 4: Preview Environments
-
-- [ ] In Railway project settings, enable "Create preview deployments from pull requests"
-- [ ] Set trigger: "Pull Request opened"
-- [ ] Verify preview env vars inherit from production
-- [ ] Override `VITE_API_URL` in preview to use `${{api.RAILWAY_PUBLIC_DOMAIN}}` (should auto-resolve per environment)
-
-### Test preview environments
-
-- [ ] Create a test branch and PR
-- [ ] Confirm Railway spins up preview API + Client
-- [ ] Verify preview Client talks to preview API (not production)
-- [ ] Close PR and confirm preview is destroyed
 
 ---
 
@@ -165,19 +186,6 @@ The current API Dockerfile uses `node:18-alpine` and runs `npm ci` from the pack
 
 - [ ] Update `docs/active-cells.md` with Railway URLs
 - [ ] Add Railway service URLs to issue #13 comment
-- [ ] Update `docs/railway-integration.md` checklist items to reflect actual state
+- [ ] Update `docs/railway-integration.md` to reflect Railway PG instead of Render
 - [ ] Close auto-shop issue #8 (Railway) if fully configured
-
----
-
-## Known Issues / Decisions Needed
-
-1. **API Dockerfile needs a rewrite.** Current Dockerfile installs from `packages/api/` only — does not have workspace context. The client Dockerfile already does this correctly; follow that pattern.
-
-2. **gnubg-hints native addon in Docker.** The API depends on gnubg-hints which builds a C/C++ N-API addon via node-gyp. The Docker build stage needs `python3`, `make`, `g++` (alpine: `build-base python3`). The gnubg evaluation engine `.bd` files may also need to be included.
-
-3. **Database: Render vs Railway.** Current plan uses Render PostgreSQL. Railway also offers PostgreSQL. Decide whether to keep Render or migrate. Using Render means Railway → Render network latency.
-
-4. **Auth0 callback URLs.** Railway preview environments generate dynamic URLs. Auth0 needs wildcard or per-preview callback URLs configured. Check if Auth0 supports wildcard patterns for callback URLs.
-
-5. **API version mismatch.** `.env.example` shows `API_VERSION_PATH=/api/v4.0` but `railway-integration.md` shows `/api/v4.6`. Confirm correct version.
+- [ ] Record Railway service URLs and project details in auto-shop MEMORY.md

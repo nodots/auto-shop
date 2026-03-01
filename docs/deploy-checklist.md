@@ -1,191 +1,186 @@
 # Deploy Checklist: nodots-backgammon on Railway
 
-Target: Get nodots-backgammon (API + Client) running on Railway with Railway PostgreSQL, auto-shop cell infrastructure, then launch Cell 1 (gnubg-hints PR calculation).
+Starting from scratch. New Railway project, Railway PostgreSQL, API + Client services.
+
+All steps use the Railway CLI unless marked **[Dashboard]**.
+
+## What already exists
+
+- Both Dockerfiles are written and committed (`packages/api/Dockerfile`, `packages/client/Dockerfile`)
+- Both `railway.json` files are committed
+- Railway CLI is authenticated (`railway whoami` → kenr@nodots.com)
+- An old empty project `nodots-backgammon-api` exists on Railway (delete it)
+
+## Auth0 tenants
+
+There are two Auth0 tenants. Pick one for Railway.
+
+| Tenant | Domain                              | Client uses        |
+| ------ | ----------------------------------- | ------------------ |
+| Dev    | `dev-8ykjldydiqcf2hqu.us.auth0.com` | `.env.development` |
+| Prod   | `nodots-backgammon.us.auth0.com`    | `.env.production`  |
+
+The dev tenant API client ID is `qdkexB56guy3NFhWL3hH1vqB2zqDMwtk`. The prod tenant client IDs are in the Auth0 dashboard.
 
 ---
 
-## Decisions Made
+## Phase 1: Delete old project, create new one
 
-- **API Dockerfile**: Rewrite to workspace-root pattern matching the client Dockerfile
-- **gnubg-hints in Docker**: API uses gnubg-hints at runtime — include native build deps (current npm package uses stubs, no .bd files needed yet; Cell 1 will add real gnubg integration)
-- **Database**: Railway PostgreSQL (same-network, no cross-provider latency)
-- **Preview environments**: Skip for now — production deploy only, add previews later
-- **API version**: `/api/v4.6`
-
----
-
-## Phase 0: Prerequisites
-
-- [ ] Railway CLI authenticated (`railway whoami` → kenr@nodots.com)
-- [ ] GitHub CLI authenticated (`gh auth status`)
-- [ ] Access to Auth0 dashboard (nodots-backgammon tenant)
-- [ ] nodots-backgammon repo cloned and on main
+- [ ] **[Dashboard]** Delete the empty `nodots-backgammon-api` project (no CLI delete command)
+- [ ] Create the new project:
+  ```bash
+  railway init --name nodots-backgammon
+  ```
+- [ ] Link the local directory to the project:
+  ```bash
+  railway link --project nodots-backgammon
+  ```
 
 ---
 
-## Phase 1: Rewrite API Dockerfile
+## Phase 2: Add PostgreSQL
 
-The current API Dockerfile uses `node:18-alpine` and installs from `packages/api/` only. It needs the full workspace context to resolve `file:` dependencies, plus native build tools for gnubg-hints.
-
-- [ ] Update `packages/api/Dockerfile` to:
-  - Use `node:20-alpine` (match client)
-  - Install `python3 make g++` for node-gyp (gnubg-hints native addon)
-  - Copy all packages from workspace root
-  - Strip husky prepare scripts before install
-  - Install full workspace (gnubg-hints install script runs node-gyp rebuild)
-  - Build in order: types → core → ai → api-utils → api
-  - Run `npm run start:prod` (which runs migrations then starts)
-- [ ] Test locally: `docker build -f packages/api/Dockerfile .` from workspace root
-- [ ] Commit and push
+- [ ] Add a Postgres database to the project:
+  ```bash
+  railway add --database postgres
+  ```
+- [ ] Note: other services reference this as `${{Postgres.DATABASE_URL}}` — Railway resolves the actual connection string at deploy time. You never need to copy/paste the raw URL.
 
 ---
 
-## Phase 2: Railway Services
+## Phase 3: Create API service
 
-Railway project `nodots-backgammon-api` exists but has no services.
-
-### PostgreSQL Service
-
-- [ ] In Railway dashboard, add a PostgreSQL plugin/service to the project
-- [ ] Note the `DATABASE_URL` Railway generates (available as `${{Postgres.DATABASE_URL}}`)
-
-### API Service
-
-- [ ] Create a new service in the `nodots-backgammon-api` project
-- [ ] Connect it to the `nodots/nodots-backgammon` GitHub repo
-- [ ] Set Dockerfile path: `packages/api/Dockerfile`
-- [ ] Leave root directory blank (workspace root)
-- [ ] Set deploy branch: `main`
-
-**API environment variables:**
-
-- [ ] `DATABASE_URL` = `${{Postgres.DATABASE_URL}}` (Railway variable reference)
-- [ ] `NODE_ENV` = `production`
-- [ ] `PORT` = `3000`
-- [ ] `AUTH0_DOMAIN` = `dev-8ykjldydiqcf2hqu.us.auth0.com`
-- [ ] `AUTH0_CLIENT_ID` — from Auth0 dashboard
-- [ ] `AUTH0_CLIENT_SECRET` — from Auth0 dashboard
-- [ ] `AUTH0_AUDIENCE` = `nodots-backgammon-api`
-- [ ] `JWT_SECRET` — generate a secure value
-- [ ] `ROBOT_USER_ID` = `767347c0-6a20-4998-8649-4b8bc56192c6`
-- [ ] `ROBOT_MOVE_DELAY_MS` = `2000`
-- [ ] `API_VERSION_PATH` = `/api/v4.6`
-
-### Client Service
-
-- [ ] Create a second service in the same Railway project
-- [ ] Connect it to the same `nodots/nodots-backgammon` GitHub repo
-- [ ] Set Dockerfile path: `packages/client/Dockerfile`
-- [ ] Leave root directory blank (workspace root)
-- [ ] Set deploy branch: `main`
-
-**Client environment variables (build-time, VITE_ prefix):**
-
-- [ ] `VITE_AUTH0_DOMAIN` = `dev-8ykjldydiqcf2hqu.us.auth0.com`
-- [ ] `VITE_AUTH0_CLIENT_ID` — web client ID from Auth0
-- [ ] `VITE_AUTH0_AUDIENCE` = `nodots-backgammon-api`
-- [ ] `VITE_API_URL` = `https://${{api.RAILWAY_PUBLIC_DOMAIN}}`
-- [ ] `VITE_REST_PATH` = `/api`
-- [ ] `VITE_API_VERSION` = `v4.6`
-- [ ] `VITE_WS_URL` = `wss://${{api.RAILWAY_PUBLIC_DOMAIN}}/ws`
-
-### Auth0 Configuration
-
-- [ ] Add the Railway API public URL to Auth0 allowed callback URLs
-- [ ] Add the Railway Client public URL to Auth0 allowed callback URLs
-- [ ] Add the Railway Client public URL to Auth0 allowed logout URLs
-- [ ] Add the Railway Client public URL to Auth0 allowed web origins
+- [ ] Create the service linked to the GitHub repo:
+  ```bash
+  railway add --service api --repo nodots/nodots-backgammon
+  ```
+- [ ] **[Dashboard]** Settings → Build → Dockerfile path: `packages/api/Dockerfile`, Root directory: leave blank (no CLI flag for Dockerfile path)
+- [ ] Generate a public domain:
+  ```bash
+  railway domain --service api
+  ```
+- [ ] Set environment variables:
+  ```bash
+  railway variables --service api \
+    --set "DATABASE_URL=\${{Postgres.DATABASE_URL}}" \
+    --set "NODE_ENV=production" \
+    --set "PORT=3000" \
+    --set "AUTH0_DOMAIN=<from Auth0 dashboard — see tenant table above>" \
+    --set "AUTH0_CLIENT_ID=<from Auth0 dashboard>" \
+    --set "AUTH0_CLIENT_SECRET=<from Auth0 dashboard>" \
+    --set "AUTH0_AUDIENCE=<match the API identifier in Auth0>" \
+    --set "JWT_SECRET=$(openssl rand -hex 32)" \
+    --set "ROBOT_USER_ID=767347c0-6a20-4998-8649-4b8bc56192c6" \
+    --set "ROBOT_MOVE_DELAY_MS=2000" \
+    --set "API_VERSION_PATH=/api/v4.6" \
+    --set "CORS_ALLOWED_ORIGINS=<client public URL once known>"
+  ```
 
 ---
 
-## Phase 3: Database Migration
+## Phase 4: Create Client service
 
-Migrate data from Render PostgreSQL to Railway PostgreSQL.
-
-- [ ] Export schema and data from Render: `pg_dump $RENDER_DATABASE_URL > backup.sql`
-- [ ] Import into Railway: `psql $RAILWAY_DATABASE_URL < backup.sql`
-- [ ] Verify row counts match on key tables
-- [ ] Or: skip data migration if starting fresh — Drizzle migrations will create schema on first `start:prod`
-
----
-
-## Phase 4: Deploy and Verify
-
-### API verification
-
-- [ ] Railway deploy succeeds (check build logs)
-- [ ] gnubg-hints native addon compiled in build stage
-- [ ] Drizzle migrations run on startup (`railway:migrate` in `start:prod`)
-- [ ] API health endpoint responds: `curl https://<api-url>/api/v4.6/health`
-- [ ] Auth0 token validation works (test with a real token)
-- [ ] WebSocket endpoint accessible at `wss://<api-url>/ws`
-
-### Client verification
-
-- [ ] Railway deploy succeeds
-- [ ] Client loads at the Railway-generated URL
-- [ ] Auth0 login flow works (redirect → callback → authenticated)
-- [ ] Client connects to API (network tab shows successful API calls)
-- [ ] WebSocket connection established
-
-### Cross-service verification
-
-- [ ] Client `VITE_API_URL` resolves to the API service URL via Railway variable reference
-- [ ] CORS allows the client origin
-- [ ] Full login → create game → play a move flow works end-to-end
+- [ ] Create the service linked to the GitHub repo:
+  ```bash
+  railway add --service client --repo nodots/nodots-backgammon
+  ```
+- [ ] **[Dashboard]** Settings → Build → Dockerfile path: `packages/client/Dockerfile`, Root directory: leave blank
+- [ ] Generate a public domain:
+  ```bash
+  railway domain --service client
+  ```
+- [ ] Set environment variables (build-time — baked into the Vite build, changing them requires a redeploy):
+  ```bash
+  railway variables --service client \
+    --set "VITE_AUTH0_DOMAIN=<must match API's AUTH0_DOMAIN>" \
+    --set "VITE_AUTH0_CLIENT_ID=<web app client ID from Auth0 — different from API client ID>" \
+    --set "VITE_AUTH0_AUDIENCE=<must match API's AUTH0_AUDIENCE>" \
+    --set "VITE_API_URL=https://\${{api.RAILWAY_PUBLIC_DOMAIN}}" \
+    --set "VITE_REST_PATH=/api" \
+    --set "VITE_API_VERSION=v4.6" \
+    --set "VITE_WS_URL=wss://\${{api.RAILWAY_PUBLIC_DOMAIN}}/ws"
+  ```
 
 ---
 
-## Phase 5: Auto-Shop Cell Infrastructure
+## Phase 5: Update CORS
 
-### gnubg-hints (already done)
+Once both services have public domains:
 
-- [x] `.claude/` hooks and agent committed to main
-- [x] `feat/pr-calculation-gnubg` rebased onto main
-- [x] Hooks verified (PreToolUse, TaskCompleted, Stop)
-
-### nodots-backgammon
-
-- [ ] Run: `auto-shop infra setup /Users/kenr/Code/nodots-backgammon nodots-backgammon`
-- [ ] Edit `.claude/agents/cell-worker-nodots-backgammon.md` with project-specific context:
-  - Monorepo structure (packages/types, core, ai, api, client, etc.)
-  - Build: `npm run build` (runs `scripts/build-all.sh`)
-  - Test: `npm test --workspaces`
-  - Lint: `npm run lint --workspaces`
-  - TypeScript strict mode, Node 20, npm workspaces
-- [ ] Commit `.claude/` to nodots-backgammon main
-- [ ] Push to origin
+- [ ] Set the API's CORS origin to the client's domain:
+  ```bash
+  railway variables --service api \
+    --set "CORS_ALLOWED_ORIGINS=https://<client-domain>"
+  ```
 
 ---
 
-## Phase 6: Launch Cell 1
+## Phase 6: Auth0 configuration
 
-### Verify branch state
+**[Dashboard]** — all steps are in the Auth0 dashboard for whichever tenant you chose:
 
-- [ ] `feat/pr-calculation-gnubg` exists on gnubg-hints with SCOPE.json
-- [ ] Branch is rebased onto latest main (includes .claude/ infrastructure)
-- [ ] gnubg-hints issue #13 open and labeled
-
-### Launch agent session
-
-- [ ] Open Claude Code in `/Users/kenr/Code/nodots-backgammon/packages/gnubg-hints/`
-- [ ] Switch to `feat/pr-calculation-gnubg`
-- [ ] Invoke `cell-worker-gnubg` agent or paste the agent prompt from `docs/active-cells.md`
-- [ ] Verify PreToolUse hook fires on first edit (check that it allows in-scope files)
-
-### Monitor
-
-- [ ] Agent is working within SCOPE.json boundaries
-- [ ] No scope violations in hook output
-- [ ] When agent finishes: HANDOFF.md or BLOCKER.md exists
-- [ ] If complete: draft PR opened with `[READY]:` prefix
+- [ ] Allowed Callback URLs: add the client's Railway URL (e.g. `https://client-production-xxxx.up.railway.app/callback`)
+- [ ] Allowed Logout URLs: add the client's Railway URL
+- [ ] Allowed Web Origins: add the client's Railway URL
+- [ ] Allowed Origins (CORS): add the client's Railway URL
 
 ---
 
-## Phase 7: Post-Deploy Cleanup
+## Phase 7: Database
 
-- [ ] Update `docs/active-cells.md` with Railway URLs
-- [ ] Add Railway service URLs to issue #13 comment
-- [ ] Update `docs/railway-integration.md` to reflect Railway PG instead of Render
-- [ ] Close auto-shop issue #8 (Railway) if fully configured
-- [ ] Record Railway service URLs and project details in auto-shop MEMORY.md
+Two options:
+
+### Option A: Fresh start (Drizzle creates schema)
+
+- [ ] Do nothing. The API's `start:prod` script runs `railway:migrate` which runs Drizzle migrations on startup. First deploy creates all tables.
+
+### Option B: Migrate from Render
+
+- [ ] `pg_dump $RENDER_DATABASE_URL > backup.sql`
+- [ ] Get Railway database connection string from Railway dashboard (raw, not the variable reference)
+- [ ] `psql $RAILWAY_DATABASE_URL < backup.sql`
+- [ ] Verify row counts on key tables
+
+---
+
+## Phase 8: Deploy and verify
+
+### API
+
+- [ ] Trigger a deploy (or it auto-deploys from main)
+- [ ] Watch build logs:
+  ```bash
+  railway logs --service api --build
+  ```
+- [ ] Watch deploy logs:
+  ```bash
+  railway logs --service api --deployment
+  ```
+- [ ] gnubg-hints native addon must compile (check build logs)
+- [ ] Drizzle migrations must run (check deploy logs)
+- [ ] Test health:
+  ```bash
+  curl https://<api-domain>/api/v4.6/health
+  ```
+- [ ] Test WebSocket: `wscat -c wss://<api-domain>/ws` (or browser devtools)
+
+### Client
+
+- [ ] Confirm deploy succeeds (nginx serving static files)
+- [ ] Open client URL in browser — app loads
+- [ ] Auth0 login flow works (redirect → callback → session)
+- [ ] Network tab shows API calls hitting the Railway API domain
+- [ ] WebSocket connects
+
+### End-to-end
+
+- [ ] Log in → create a game → make a move
+- [ ] Robot player responds (uses `ROBOT_USER_ID`)
+
+---
+
+## After it works
+
+- [ ] Record the Railway project name, API URL, and Client URL in auto-shop MEMORY.md
+- [ ] Close auto-shop issue #8
+- [ ] Update `docs/railway-integration.md` with actual URLs

@@ -1,0 +1,21 @@
+{
+  "feature": "cell-status-command",
+  "project": "auto-shop",
+  "branch": "feat/cell-status-command",
+  "createdAt": "2026-03-03",
+  "allowedPaths": [
+    "bin/auto-shop",
+    "test/**"
+  ],
+  "forbiddenPaths": [
+    "scripts/**",
+    "docs/**",
+    "templates/**",
+    ".github/**",
+    "CLAUDE.md",
+    "MERGE_QUEUE.md"
+  ],
+  "dependsOn": [],
+  "blockedBy": [],
+  "estimatedScope": "Add 'auto-shop cell status' command that aggregates issue state, branch info, BLOCKER/HANDOFF presence, and PR status into a unified view"
+}

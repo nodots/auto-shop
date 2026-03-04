@@ -8,12 +8,15 @@ Step-by-step guide for merging completed feature cells during the evening coordi
 
 | Project | Feature target | Promotion path |
 |---|---|---|
-| nodots-backgammon | `development` | feature -> development -> staging -> main |
-| PoslunsLaw | `development` | feature -> development -> staging -> main |
-| gnubg-hints | `main` | feature -> main |
+| nodots-backgammon (all packages) | `feat/4.6.4-RC` | feature -> feat/4.6.4-RC |
+| PoslunsLaw | `development` | feature -> development (never directly to main) |
 | auto-shop | `main` | feature -> main |
 
 **Wherever this document says "main", substitute the correct target branch for the project.**
+
+### Cross-Repo Features
+
+When a feature spans multiple repos (e.g., types + core + api), see **[Cross-Repo Feature Workflow](cross-repo-features.md)** for the full procedure. Key rule: merge upstream repos first, downstream repos last.
 
 ---
 

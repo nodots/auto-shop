@@ -1,66 +1,141 @@
-# Handoff: Cell 1 Repository Correction
-Date: 2026-02-23
-Status: complete
+# Handoff: ELO Ratings + Cross-Repo Workflow
+Date: 2026-03-03
+Status: blocked
 
 ## What Was Done
 
-Corrected Cell 1 targeting from nodots-backgammon to gnubg-hints (separate repo).
+### auto-shop (main, pushed)
 
-### Reversed (nodots-backgammon)
-- Deleted `feat/pr-calculation-gnubg` branch (local + remote)
-- Reverted husky commit `fa4942f5` on main, pushed as `e87593ed`
-- Closed issue #282 with explanation
+1. **New: `docs/cross-repo-features.md`** — documents the pattern for features spanning types -> core -> api: same branch name, dependency-order build/PR/merge, migration handling.
+2. **Updated: `docs/merge-procedure.md`** — fixed stale branch flow table (nodots-backgammon targets `feat/4.6.4-RC`, not `development`; removed gnubg-hints row). Added cross-reference to cross-repo doc.
+3. **Updated: `CLAUDE.md`** — added cross-repo doc to the documentation map.
 
-### Installed (gnubg-hints)
-- husky + minimatch added to `gnubg-node-addon/package.json` devDependencies
-- `prepare` script: `cd .. && husky gnubg-node-addon/.husky` (handles subdirectory layout)
-- Pre-commit hook at `gnubg-node-addon/.husky/pre-commit` runs enforce-scope.js
-- Hook sets `NODE_PATH=gnubg-node-addon/node_modules` so require('minimatch') resolves from git root
-- enforce-scope.js copied to `gnubg-node-addon/scripts/`
-- All committed and pushed to gnubg-hints main (`fbcd4c1`)
+### nodots-backgammon (feat/elo-ratings branches, pushed, PRs open)
 
-### Created (gnubg-hints)
-- `feat/pr-calculation-gnubg` branch from main
-- SCOPE.json at repo root with gnubg-hints-relative paths
-- Committed and pushed (`781f08c`)
+ELO rating system implemented across three packages:
 
-### Created (GitHub)
-- Issue nodots/gnubg-hints#13 — Cell 1 feature-cell issue
+**types** (PR [#53](https://github.com/nodots/nodots-backgammon-types/pull/53)):
+- New `src/elo.ts`: `EloConfig`, `EloCalculationResult`, `EloRating`, `DEFAULT_ELO_CONFIG`
+- Barrel export added to `src/index.ts`
+- Builds cleanly
 
-### Updated (auto-shop)
-- `docs/active-cells.md` — Cell 1 section rewritten with correct repo, paths, agent prompt
-- Memory updated
+**core** (PR [#104](https://github.com/nodots/nodots-backgammon-core/pull/104)):
+- New `src/Services/EloCalculator.ts`: `expectedScore`, `getKFactor`, `calculate`, `prToElo`
+- New `src/Services/__tests__/EloCalculator.test.ts`: 19 tests, all passing
+- Barrel export added to `src/Services/index.ts`
+- Builds cleanly
 
-## What Remains
+**api** (PR [#52](https://github.com/nodots/nodots-backgammon-api/pull/52)):
+- 3 ELO columns added to UsersTable (`eloRating`, `eloGamesPlayed`, `eloUpdatedAt`)
+- New `EloHistoryTable` with schema, operations, barrel exports
+- New `EloRouter` with 4 GET endpoints (user rating, history, leaderboard, game results)
+- `calculateAndStoreElo` function — auto-fires on game completion (fire-and-forget)
+- Router mounted on both main and test routers
+- Robot ELO seeding via `EloCalculator.prToElo(averagePR)` in `seed-robots.ts`
+- Drizzle migration: `0002_aromatic_the_hunter.sql`
+- Fixed: `.env.example` updated from v4.5 to v4.6
+- Fixed: `game.winner` polymorphism (can be string or object from JSONB)
+- Builds cleanly
 
-1. **Launch Cell 1 agent session** — The branch, SCOPE.json, and issue are ready. Use the agent prompt from `docs/active-cells.md` Cell 1 section. Root the session at `/Users/kenr/Code/nodots-backgammon/packages/gnubg-hints/`.
+### Verification completed
 
-2. **Commit auto-shop changes** — `docs/active-cells.md` has local edits not yet committed to auto-shop.
+- Migration applied to local dev DB (3 columns on users, elo_history table with indexes/FKs)
+- Robot ELO ratings verified correct (Grandmaster 2100 down to nbg-bot-v1 1100)
+- All 4 ELO endpoints return correct data
+- `calculateAndStoreElo` tested on a completed game: correctly saves history, updates human rating, skips robot update, idempotent on re-run
+- Core tests: 19/19 pass
+- All three packages build cleanly on Node 20
+- Test ELO data cleaned up from dev DB after verification
 
-3. **gnubg-hints main has an unpushed commit** — `6dba30b fix(encoding): apply Golden Rule for board position encoding` was already ahead of origin before this session. It got pushed as part of the batch (`fbcd4c1` includes it). This is resolved.
+### Branch state fixes applied
 
-4. **gnubg-hints stashed changes** — There's a stash from `feat/4.6.4-RC` branch (`git stash list` to check). The stash contains a modified `gnubg-node-addon/src/types.ts`. Switch back to that branch and `git stash pop` if needed.
+All three `feat/elo-ratings` branches were reset from `development` (stale) to `feat/4.6.4-RC` (correct base) before implementing.
 
-## Key Decisions Made
+## Current Blockers
 
-- **Husky subdirectory approach:** Rather than creating a second `package.json` at the gnubg-hints root, husky was installed in `gnubg-node-addon/` with `prepare` navigating up to the git root. This keeps all Node tooling in one place.
-- **NODE_PATH in pre-commit hook:** Required because git runs hooks from the repo root, but `node_modules` is in `gnubg-node-addon/`. Setting `NODE_PATH` lets Node resolve `minimatch` without changing enforce-scope.js.
+### Client cannot log in locally
+
+The web client at http://localhost:5437/ loads and fetches resources (200s/304s in network tab) but Auth0 login fails. This is NOT caused by ELO changes. Investigation found:
+
+- Client `.env` is a symlink to `.env.development` — this file was missing (gitignored, local-only). Created it from `.env.example`.
+- `.env.example` has `VITE_AUTH0_CLIENT_SECRET=your-client-secret` (placeholder). This may need the real secret, or Auth0 SPA config may need `http://localhost:5437` added as an allowed callback URL in the Auth0 dashboard.
+- The Auth0 error page ("Oops, something went wrong") appeared on `nodots-backgammon-dev.us.auth0.com/authorize` — this is an Auth0-side configuration issue.
+- API `.env.development` had stale `API_VERSION_PATH=/api/v4.5` — corrected to `/api/v4.6`.
+
+**Action needed:** Check Auth0 dashboard for `nodots-backgammon-dev` application:
+1. Allowed Callback URLs — must include `http://localhost:5437`
+2. Allowed Logout URLs — must include `http://localhost:5437`
+3. Allowed Web Origins — must include `http://localhost:5437`
+
+### ELO PRs not yet merged
+
+Merge order (strict):
+1. types PR#53
+2. core PR#104
+3. api PR#52
+
+All target `feat/4.6.4-RC`. Do not merge out of order.
+
+## Files Modified (nodots-backgammon)
+
+| Package | File | Action |
+|---------|------|--------|
+| types | `src/elo.ts` | New |
+| types | `src/index.ts` | Edit — barrel export |
+| core | `src/Services/EloCalculator.ts` | New |
+| core | `src/Services/__tests__/EloCalculator.test.ts` | New |
+| core | `src/Services/index.ts` | Edit — barrel export |
+| api | `src/db/Users/schema.ts` | Edit — 3 ELO columns |
+| api | `src/db/EloHistory/schema.ts` | New |
+| api | `src/db/EloHistory/operations.ts` | New |
+| api | `src/db/EloHistory/index.ts` | New |
+| api | `src/db/schema.ts` | Edit — EloHistory export |
+| api | `src/routes/elo.ts` | New |
+| api | `src/routes/games.ts` | Edit — ELO hook on completion |
+| api | `src/index.ts` | Edit — mount EloRouter |
+| api | `src/utils/seed-robots.ts` | Edit — seed robot ELO |
+| api | `.env.example` | Edit — v4.5 to v4.6 |
+| api | `drizzle/0002_aromatic_the_hunter.sql` | New |
+| api | `drizzle/meta/_journal.json` | Edit |
+| api | `drizzle/meta/0002_snapshot.json` | Edit |
+
+## Files Modified (auto-shop)
+
+| File | Action |
+|------|--------|
+| `docs/cross-repo-features.md` | New |
+| `docs/merge-procedure.md` | Edit — branch flow table, cross-repo reference |
+| `CLAUDE.md` | Edit — doc map entry |
+
+## Local Environment State
+
+- `packages/api/.env` — created from `.env.example` (v4.6), gitignored
+- `packages/api/.env.development` — corrected to v4.6, gitignored
+- `packages/client/.env.development` — created from `.env.example`, gitignored (symlinked from `.env`)
+- Migration `0002_aromatic_the_hunter.sql` applied to `nodots_backgammon_dev` DB
+- Test ELO data cleaned up (elo_history emptied, e2e-tests user rating reset to 1500)
 
 ## How to Resume
 
+### Fix Auth0 (required for client testing)
+1. Log into Auth0 dashboard at https://manage.auth0.com
+2. Find the `nodots-backgammon-dev` application
+3. Add `http://localhost:5437` to Allowed Callback URLs, Logout URLs, and Web Origins
+4. Save
+
+### Test locally
 ```bash
-# Check stash from previous branch work
-cd /Users/kenr/Code/nodots-backgammon/packages/gnubg-hints
-git stash list
-
-# Verify Cell 1 branch is ready
-git checkout feat/pr-calculation-gnubg
-cat SCOPE.json
-
-# Launch agent session using prompt from:
-# /Users/kenr/Code/auto-shop/docs/active-cells.md (Cell 1 section)
-
-# Commit auto-shop doc changes
-cd /Users/kenr/Code/auto-shop
-git diff docs/active-cells.md
+nvm use 20
+cd packages/api && node -r ts-node/register/transpile-only src/index.ts &
+cd ../client && npx vite &
+# Open http://localhost:5437, log in, play a game to completion
+# Verify: curl http://localhost:3000/api/v4.6/elo/leaderboard | python3 -m json.tool
 ```
+
+### Merge PRs (after client testing passes)
+Merge in strict order against `feat/4.6.4-RC`:
+1. types PR#53
+2. core PR#104
+3. api PR#52
+
+See `docs/cross-repo-features.md` for the full procedure.

@@ -1,0 +1,77 @@
+{
+  "projects": {
+    "nodots-backgammon": {
+      "repo": "nodots/nodots-backgammon",
+      "localPath": "/Users/kenr/Code/nodots-backgammon",
+      "defaultBranch": "main",
+      "featureTarget": "feat/4.6.4-RC",
+      "promotionPath": ["feat/4.6.4-RC", "development", "staging", "main"],
+      "scopeTemplate": "templates/SCOPE-nodots-backgammon.template.json",
+      "packages": {
+        "types": {
+          "repo": "nodots/nodots-backgammon-types",
+          "path": "packages/types"
+        },
+        "core": {
+          "repo": "nodots/nodots-backgammon-core",
+          "path": "packages/core"
+        },
+        "ai": {
+          "repo": "nodots/nodots-backgammon-ai",
+          "path": "packages/ai"
+        },
+        "api-utils": {
+          "repo": "nodots/nodots-backgammon-api-utils",
+          "path": "packages/api-utils"
+        },
+        "cli": {
+          "repo": "nodots/nodots-backgammon-cli",
+          "path": "packages/cli"
+        },
+        "gnubg-hints": {
+          "repo": "nodots/gnubg-hints",
+          "path": "packages/gnubg-hints",
+          "scopeOverrides": {
+            "allowedPaths": [
+              "gnubg-node-addon/src/**",
+              "gnubg-node-addon/include/**",
+              "gnubg-node-addon/test/**",
+              "gnubg-node-addon/lib/**"
+            ],
+            "forbiddenPaths": [
+              "gnubg-node-addon/binding.gyp",
+              "gnubg-node-addon/tsconfig.json",
+              "gnubg-node-addon/package.json",
+              "gnubg-node-addon/package-lock.json",
+              ".github/**"
+            ]
+          }
+        },
+        "api": {
+          "repo": "nodots/nodots-backgammon-api",
+          "path": "packages/api"
+        },
+        "client": {
+          "repo": "nodots/nodots-backgammon-client",
+          "path": "packages/client"
+        }
+      }
+    },
+    "a2z-freight-claims": {
+      "repo": "nodots/PoslunsLaw",
+      "localPath": "/Users/kenr/Code/a2z-freight-claims",
+      "defaultBranch": "development",
+      "featureTarget": "development",
+      "promotionPath": ["development", "staging", "main"],
+      "scopeTemplate": "templates/SCOPE-a2z-freight-claims.template.json"
+    },
+    "auto-shop": {
+      "repo": "nodots/auto-shop",
+      "localPath": "/Users/kenr/Code/auto-shop",
+      "defaultBranch": "main",
+      "featureTarget": "main",
+      "promotionPath": ["main"],
+      "scopeTemplate": null
+    }
+  }
+}

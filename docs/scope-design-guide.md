@@ -434,31 +434,80 @@ Create contract:
 
 ## Project-Specific Guidelines
 
-### nodots-backgammon
+### nodots-backgammon (Multi-Repo)
 
-**Standard structure:**
-```
-src/
-  features/
-    {feature-name}/
-      component.tsx
-      hook.ts
-      utils.ts
-  types/
-    shared/
-      (forbidden)
-test/
-  features/
-    {feature-name}/
-      component.test.tsx
+nodots-backgammon is composed of 8 packages, each in its own git repository. Features typically touch multiple packages. The auto-shop CLI handles this via the `packages` field in `projects.json`.
+
+**Why multi-repo:**
+- 6 public npm packages need independent versioning and publishing
+- gnubg-hints is GPL-3.0 (must be isolated from MIT-licensed code)
+- gnubg-hints has a native C/C++ build (node-gyp) — fundamentally different build process
+- Separate repos allow independent CI, release cadence, and access control
+
+**Package map:**
+
+| Package | Repo | Public | License |
+|---------|------|--------|---------|
+| types | nodots/nodots-backgammon-types | Yes | MIT |
+| core | nodots/nodots-backgammon-core | Yes | MIT |
+| ai | nodots/nodots-backgammon-ai | Yes | MIT |
+| api-utils | nodots/nodots-backgammon-api-utils | Yes | MIT |
+| cli | nodots/nodots-backgammon-cli | Yes | MIT |
+| gnubg-hints | nodots/gnubg-hints | Yes | GPL-3.0 |
+| api | nodots/nodots-backgammon-api | No | MIT |
+| client | nodots/nodots-backgammon-client | No | MIT |
+
+**Creating a cell:**
+
+```bash
+# All packages (most features touch most packages)
+auto-shop cell create my-feature --project=nodots-backgammon
+
+# Specific packages only
+auto-shop cell create my-feature --project=nodots-backgammon --packages=types,core,api
 ```
 
-**Standard allowedPaths:**
+This creates a `feat/my-feature` branch and SCOPE.json in each selected package repo. All SCOPE.json files share the same `featureGroup` value, linking them as one logical unit of work.
+
+**Per-package SCOPE.json:**
+
+Because each package is its own repo, `src/**` is appropriate granularity — the repo boundary itself provides containment. The template uses:
+
+```json
+"allowedPaths": ["src/**", "__tests__/**", "test/**", "docs/**"]
+```
+
+**gnubg-hints special case:**
+
+gnubg-hints has a different directory layout (code lives under `gnubg-node-addon/`). Its `scopeOverrides` in `projects.json` replace the default paths:
+
 ```json
 "allowedPaths": [
-  "src/features/{feature-name}/**",
-  "test/features/{feature-name}/**"
+  "gnubg-node-addon/src/**",
+  "gnubg-node-addon/include/**",
+  "gnubg-node-addon/test/**",
+  "gnubg-node-addon/lib/**"
 ]
+```
+
+gnubg-hints inherits the project-level `featureTarget: "development"` like all other packages.
+
+**Feature groups and coordinated merges:**
+
+When a feature spans multiple packages, merge in dependency order:
+1. types (depended on by everything)
+2. core (depends on types)
+3. ai, api-utils, cli (depend on core)
+4. gnubg-hints (independent)
+5. api (depends on core, ai, api-utils)
+6. client (depends on types)
+
+Each package's SCOPE.json has a `featureGroup` field linking it to the same feature.
+
+**Viewing the package map:**
+
+```bash
+auto-shop project show nodots-backgammon
 ```
 
 ### a2z-freight-claims

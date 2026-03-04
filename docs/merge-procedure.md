@@ -1,6 +1,21 @@
 # Merge Procedure
 
-Step-by-step guide for merging completed feature cells to main during the evening coordinator session.
+Step-by-step guide for merging completed feature cells during the evening coordinator session.
+
+## Branch Flow Per Project
+
+**Not all projects merge to main.** Check the target branch before merging.
+
+| Project | Feature target | Promotion path |
+|---|---|---|
+| nodots-backgammon | `development` | feature -> development -> staging -> main |
+| PoslunsLaw | `development` | feature -> development -> staging -> main |
+| gnubg-hints | `main` | feature -> main |
+| auto-shop | `main` | feature -> main |
+
+**Wherever this document says "main", substitute the correct target branch for the project.**
+
+---
 
 ## Pre-Merge Checklist
 
@@ -69,9 +84,37 @@ If rebase fails:
 - Return to coordinator workflow, investigate
 - May need to manually coordinate with agent
 
-**Step 3: Run final tests**
+**Step 3: Run final tests (changed package + dependents)**
+
+When a package changes, you must test the changed package **and** every package that imports it. CI may run broader checks, but the coordinator must verify at least this set passes locally.
+
+**3a. Identify which package(s) the cell modified:**
 ```bash
-npm test
+# From SCOPE.json allowedPaths, or from the diff:
+git diff origin/main --name-only
+# Look at the top-level directory of changed files to determine the package(s)
+```
+
+**3b. For each modified package, identify packages that depend on it:**
+```bash
+# Search for imports of the changed package across the monorepo
+grep -r "from.*changed-package" packages/*/src --include="*.ts" -l
+# Or check package.json dependencies in sibling packages
+```
+
+**Example:** A change to `nodots-backgammon-types` requires testing both `nodots-backgammon-types` itself and `nodots-backgammon-core`, because core imports types.
+
+**3c. Run tests for the modified package and each dependent package:**
+```bash
+# Test the changed package
+cd packages/changed-package && npm test
+
+# Test each dependent package
+cd packages/dependent-package && npm test
+```
+
+**3d. Run build and lint as before:**
+```bash
 npm run build
 npm run lint
 ```
@@ -353,7 +396,7 @@ This creates a **revert commit** (doesn't undo history, just adds a "undo" commi
 Before every merge:
 - [ ] All CI checks passing
 - [ ] Dependencies merged (if any)
-- [ ] Tests passing locally
+- [ ] Tests passing locally (changed package + all packages that import it)
 - [ ] HANDOFF.md complete
 - [ ] MERGE_QUEUE.md prepared
 

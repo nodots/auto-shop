@@ -7,10 +7,13 @@
  *
  * Usage:
  *   auto-shop cell create <name>      Create a new feature cell
- *   auto-shop cell list               List all cells
+ *   auto-shop cell list               List all cells across all projects
  *   auto-shop cell teardown <name>    Clean up a feature cell
+ *   auto-shop project list            List all registered projects
+ *   auto-shop project show <name>    Show full details for a project
  *   auto-shop queue show              Show merge queue
  *   auto-shop queue next              Merge next cell
+ *   auto-shop infra setup <project>   Set up Claude Code hooks via project registry
  *   auto-shop help                    Show help
  */
 
@@ -20,6 +23,7 @@ const { execSync } = require('child_process');
 
 const REPO_ROOT = path.dirname(path.dirname(__filename));
 const MERGE_QUEUE_PATH = path.join(REPO_ROOT, 'MERGE_QUEUE.md');
+const PROJECTS_PATH = path.join(REPO_ROOT, 'projects.json');
 
 function log(message, color = 'reset') {
   const colors = {
@@ -49,16 +53,97 @@ function info(message) {
   log(`ℹ ${message}`, 'blue');
 }
 
-function cellCreate(featureName) {
-  if (!featureName) {
-    error('Usage: auto-shop cell create <feature-name>');
+function loadProjects() {
+  if (!fs.existsSync(PROJECTS_PATH)) {
+    error(`projects.json not found at ${PROJECTS_PATH}`);
+  }
+  const data = JSON.parse(fs.readFileSync(PROJECTS_PATH, 'utf8'));
+  return data.projects;
+}
+
+function resolveProject(name) {
+  const projects = loadProjects();
+  if (!projects[name]) {
+    error(`Unknown project: ${name}\nRegistered projects: ${Object.keys(projects).join(', ')}`);
+  }
+  return projects[name];
+}
+
+function parseFlags(argv) {
+  const flags = {};
+  for (const arg of argv) {
+    const match = arg.match(/^--(\w[\w-]*)=(.+)$/);
+    if (match) {
+      flags[match[1]] = match[2];
+    }
+  }
+  return flags;
+}
+
+function projectList() {
+  const projects = loadProjects();
+
+  log('\nRegistered Projects:\n', 'blue');
+  for (const [name, proj] of Object.entries(projects)) {
+    log(`  ${name}`, 'green');
+    log(`    repo:           ${proj.repo}`);
+    log(`    localPath:      ${proj.localPath}`);
+    log(`    defaultBranch:  ${proj.defaultBranch}`);
+    log(`    featureTarget:  ${proj.featureTarget}`);
+    log(`    promotionPath:  ${proj.promotionPath.join(' -> ')}`);
+    log(`    scopeTemplate:  ${proj.scopeTemplate || '(none)'}`);
+    if (proj.packages) {
+      log(`    packages:       ${Object.keys(proj.packages).length} (use 'project show ${name}' for details)`);
+    }
+    log('');
+  }
+}
+
+function projectShow(name) {
+  if (!name) {
+    error('Usage: auto-shop project show <project-name>');
   }
 
-  const cwd = process.cwd();
+  const proj = resolveProject(name);
 
-  // Verify cwd is a git repo
+  log(`\n${name}\n`, 'blue');
+  log(`  repo:           ${proj.repo}`);
+  log(`  localPath:      ${proj.localPath}`);
+  log(`  defaultBranch:  ${proj.defaultBranch}`);
+  log(`  featureTarget:  ${proj.featureTarget}`);
+  log(`  promotionPath:  ${proj.promotionPath.join(' -> ')}`);
+  log(`  scopeTemplate:  ${proj.scopeTemplate || '(none)'}`);
+
+  if (!proj.packages) {
+    log('\n  (single-repo project)\n');
+    return;
+  }
+
+  log(`\n  Packages (${Object.keys(proj.packages).length}):\n`, 'blue');
+
+  for (const [pkgName, pkg] of Object.entries(proj.packages)) {
+    log(`    ${pkgName}`, 'green');
+    log(`      repo:           ${pkg.repo}`);
+    log(`      path:           ${pkg.path}`);
+    if (pkg.featureTarget) {
+      log(`      featureTarget:  ${pkg.featureTarget} (override)`);
+    }
+    if (pkg.scopeOverrides) {
+      log(`      scopeOverrides: yes`);
+    }
+    log('');
+  }
+}
+
+function cellCreateSingleRepo(featureName, proj, projectName) {
+  const cwd = proj ? proj.localPath : process.cwd();
+  const featureTarget = proj ? proj.featureTarget : 'main';
+  const scopeTemplatePath = proj && proj.scopeTemplate
+    ? path.join(REPO_ROOT, proj.scopeTemplate)
+    : null;
+
   if (!fs.existsSync(path.join(cwd, '.git'))) {
-    error('Current directory is not a git repository. Run this command from the target project root.');
+    error(`${cwd} is not a git repository. Use --project=<name> or run from the target project root.`);
   }
 
   const featureSlug = featureName.toLowerCase().replace(/[^a-z0-9]/g, '-');
@@ -66,28 +151,31 @@ function cellCreate(featureName) {
   const schemaName = `feat_${featureSlug.replace(/-/g, '_')}`;
 
   try {
-    // Create branch
+    info(`Checking out ${featureTarget}`);
+    execSync(`git checkout ${featureTarget}`, { cwd, stdio: 'inherit' });
+    execSync(`git pull origin ${featureTarget}`, { cwd, stdio: 'inherit' });
+
     info(`Creating branch: ${branchName}`);
     execSync(`git checkout -b ${branchName}`, { cwd, stdio: 'inherit' });
 
-    // Generate SCOPE.json from template
     info('Creating SCOPE.json');
-    const templatePath = path.join(REPO_ROOT, 'templates', 'SCOPE.json');
-    const scope = JSON.parse(fs.readFileSync(templatePath, 'utf8'));
+    const templateToUse = scopeTemplatePath || path.join(REPO_ROOT, 'templates', 'SCOPE.json');
+    const scope = JSON.parse(fs.readFileSync(templateToUse, 'utf8'));
     scope.feature = featureName;
     scope.branch = branchName;
     scope.createdAt = new Date().toISOString().slice(0, 10);
+    if (projectName) {
+      scope.project = projectName;
+    }
 
     const scopePath = path.join(cwd, 'SCOPE.json');
     fs.writeFileSync(scopePath, JSON.stringify(scope, null, 2) + '\n');
 
-    // Commit SCOPE.json
     execSync(`git add SCOPE.json && git commit -m "Add SCOPE.json for ${branchName}"`, {
       cwd,
       stdio: 'inherit'
     });
 
-    // Run provisioning script
     const provisionScript = path.join(REPO_ROOT, 'scripts', 'provision-feature-env.sh');
     info(`Provisioning database schema: ${schemaName}`);
     execSync(`"${provisionScript}" ${featureSlug}`, {
@@ -104,55 +192,182 @@ function cellCreate(featureName) {
   }
 }
 
+function cellCreateMultiRepo(featureName, proj, projectName, selectedPackages) {
+  const featureSlug = featureName.toLowerCase().replace(/[^a-z0-9]/g, '-');
+  const branchName = `feat/${featureSlug}`;
+  const featureGroup = featureSlug;
+
+  const allPackages = Object.keys(proj.packages);
+  const packagesToCreate = selectedPackages || allPackages;
+
+  // Validate selected packages
+  for (const pkg of packagesToCreate) {
+    if (!proj.packages[pkg]) {
+      error(`Unknown package: ${pkg}\nAvailable packages: ${allPackages.join(', ')}`);
+    }
+  }
+
+  const scopeTemplatePath = proj.scopeTemplate
+    ? path.join(REPO_ROOT, proj.scopeTemplate)
+    : path.join(REPO_ROOT, 'templates', 'SCOPE.json');
+
+  info(`Creating multi-repo cell: ${branchName}`);
+  info(`Packages: ${packagesToCreate.join(', ')}`);
+  log('');
+
+  const created = [];
+
+  for (const pkgName of packagesToCreate) {
+    const pkg = proj.packages[pkgName];
+    const pkgPath = path.join(proj.localPath, pkg.path);
+
+    if (!fs.existsSync(pkgPath)) {
+      warn(`Skipping ${pkgName}: path does not exist (${pkgPath})`);
+      continue;
+    }
+
+    if (!fs.existsSync(path.join(pkgPath, '.git'))) {
+      warn(`Skipping ${pkgName}: not a git repository (${pkgPath})`);
+      continue;
+    }
+
+    const target = pkg.featureTarget || proj.featureTarget;
+
+    try {
+      log(`\n--- ${pkgName} (${pkg.repo}) ---`, 'blue');
+
+      info(`Checking out ${target}`);
+      execSync(`git checkout ${target}`, { cwd: pkgPath, stdio: 'inherit' });
+      execSync(`git pull origin ${target}`, { cwd: pkgPath, stdio: 'inherit' });
+
+      info(`Creating branch: ${branchName}`);
+      execSync(`git checkout -b ${branchName}`, { cwd: pkgPath, stdio: 'inherit' });
+
+      info('Creating SCOPE.json');
+      const scope = JSON.parse(fs.readFileSync(scopeTemplatePath, 'utf8'));
+      scope.feature = featureName;
+      scope.project = projectName;
+      scope.branch = branchName;
+      scope.createdAt = new Date().toISOString().slice(0, 10);
+      scope.package = pkgName;
+      scope.featureGroup = featureGroup;
+
+      if (pkg.scopeOverrides) {
+        if (pkg.scopeOverrides.allowedPaths) {
+          scope.allowedPaths = pkg.scopeOverrides.allowedPaths;
+        }
+        if (pkg.scopeOverrides.forbiddenPaths) {
+          scope.forbiddenPaths = pkg.scopeOverrides.forbiddenPaths;
+        }
+      }
+
+      const scopePath = path.join(pkgPath, 'SCOPE.json');
+      fs.writeFileSync(scopePath, JSON.stringify(scope, null, 2) + '\n');
+
+      execSync(`git add SCOPE.json && git commit -m "Add SCOPE.json for ${branchName}"`, {
+        cwd: pkgPath,
+        stdio: 'inherit'
+      });
+
+      created.push(pkgName);
+      success(`${pkgName}: branch and SCOPE.json created`);
+
+    } catch (err) {
+      warn(`Failed to create cell in ${pkgName}: ${err.message}`);
+    }
+  }
+
+  log('');
+  if (created.length > 0) {
+    success(`Cell created in ${created.length}/${packagesToCreate.length} packages: ${created.join(', ')}`);
+    info(`Feature group: ${featureGroup}`);
+    info(`Next: Create GitHub issue with feature-cell template`);
+  } else {
+    error('No packages were successfully set up');
+  }
+}
+
+function cellCreate(featureName) {
+  if (!featureName) {
+    error('Usage: auto-shop cell create <feature-name> [--project=<name>] [--packages=<p1,p2,...>]');
+  }
+
+  const flags = parseFlags(process.argv);
+
+  if (flags.project) {
+    const proj = resolveProject(flags.project);
+
+    if (!fs.existsSync(proj.localPath)) {
+      error(`Project local path does not exist: ${proj.localPath}`);
+    }
+
+    if (proj.packages) {
+      const selectedPackages = flags.packages
+        ? flags.packages.split(',').map(p => p.trim())
+        : null;
+      cellCreateMultiRepo(featureName, proj, flags.project, selectedPackages);
+    } else {
+      cellCreateSingleRepo(featureName, proj, flags.project);
+    }
+  } else {
+    cellCreateSingleRepo(featureName, null, null);
+  }
+}
+
 function cellList() {
+  const projects = loadProjects();
+
+  // Build list of repos to query, including package repos
+  const repoEntries = [];
+  for (const [name, proj] of Object.entries(projects)) {
+    repoEntries.push({ project: name, repo: proj.repo, package: null });
+    if (proj.packages) {
+      for (const [pkgName, pkg] of Object.entries(proj.packages)) {
+        // Avoid duplicating the parent repo
+        if (pkg.repo !== proj.repo) {
+          repoEntries.push({ project: name, repo: pkg.repo, package: pkgName });
+        }
+      }
+    }
+  }
+
   try {
-    info('Fetching active cells from GitHub...');
-    const output = execSync('gh issue list --label cell:active --json number,title,labels', {
-      cwd: REPO_ROOT,
-      encoding: 'utf8'
-    });
+    let currentProject = null;
 
-    const issues = JSON.parse(output);
+    for (const entry of repoEntries) {
+      if (entry.project !== currentProject) {
+        currentProject = entry.project;
+        log(`\n${entry.project}:`, 'blue');
+      }
 
-    if (issues.length === 0) {
-      info('No active cells');
-      return;
+      const label = entry.package ? `  ${entry.package} (${entry.repo})` : `  ${entry.repo}`;
+      let hasIssues = false;
+
+      for (const cellLabel of ['cell:active', 'cell:queued', 'cell:blocked', 'cell:awaiting-review']) {
+        let output;
+        try {
+          output = execSync(`gh issue list --repo ${entry.repo} --label "${cellLabel}" --json number,title`, {
+            encoding: 'utf8',
+            stdio: ['pipe', 'pipe', 'pipe']
+          });
+        } catch {
+          continue;
+        }
+
+        const issues = JSON.parse(output);
+        if (issues.length > 0) {
+          if (!hasIssues) {
+            log(label, 'green');
+            hasIssues = true;
+          }
+          log(`    ${cellLabel}:`, 'yellow');
+          issues.forEach(issue => {
+            log(`      #${issue.number}: ${issue.title}`);
+          });
+        }
+      }
     }
-
-    log('\nActive Cells:', 'blue');
-    issues.forEach(issue => {
-      log(`  #${issue.number}: ${issue.title}`);
-    });
-
-    log('\nQueued Cells:', 'blue');
-    const queuedOutput = execSync('gh issue list --label cell:queued --json number,title', {
-      cwd: REPO_ROOT,
-      encoding: 'utf8'
-    });
-    const queued = JSON.parse(queuedOutput);
-
-    if (queued.length === 0) {
-      info('(none)');
-    } else {
-      queued.forEach(issue => {
-        log(`  #${issue.number}: ${issue.title}`);
-      });
-    }
-
-    log('\nBlocked Cells:', 'blue');
-    const blockedOutput = execSync('gh issue list --label cell:blocked --json number,title', {
-      cwd: REPO_ROOT,
-      encoding: 'utf8'
-    });
-    const blocked = JSON.parse(blockedOutput);
-
-    if (blocked.length === 0) {
-      info('(none)');
-    } else {
-      blocked.forEach(issue => {
-        log(`  #${issue.number}: ${issue.title}`);
-      });
-    }
+    log('');
 
   } catch (err) {
     error(`Failed to list cells: ${err.message}`);
@@ -194,9 +409,24 @@ function queueShow() {
   }
 }
 
-function infraSetup(repoPath, projectName) {
-  if (!repoPath || !projectName) {
-    error('Usage: auto-shop infra setup <repo-path> <project-name>');
+function infraSetup(firstArg, secondArg) {
+  // Two modes:
+  //   auto-shop infra setup <project-name>          (registry lookup)
+  //   auto-shop infra setup <repo-path> <project-name>  (legacy two-arg)
+  let repoPath;
+  let projectName;
+
+  if (firstArg && !secondArg) {
+    // Single arg: treat as project name from registry
+    const proj = resolveProject(firstArg);
+    repoPath = proj.localPath;
+    projectName = firstArg;
+  } else if (firstArg && secondArg) {
+    // Two args: legacy path + name
+    repoPath = firstArg;
+    projectName = secondArg;
+  } else {
+    error('Usage: auto-shop infra setup <project-name>\n       auto-shop infra setup <repo-path> <project-name>');
   }
 
   const setupScript = path.join(REPO_ROOT, 'scripts', 'setup-claude-infra.sh');
@@ -222,19 +452,31 @@ USAGE:
   auto-shop <command> [options]
 
 COMMANDS:
-  cell create <name>      Create a new feature cell
-                          - Creates branch: feat/<name>
-                          - Generates SCOPE.json
-                          - Provisions database schema
+  cell create <name> [--project=<p>] [--packages=<p1,p2,...>]
+                          Create a new feature cell
+                          - Branches from featureTarget (default: main)
+                          - Uses project-specific scope template if available
+                          - Provisions database schema (single-repo only)
+                          --project:  Resolve path and settings from projects.json
+                          --packages: For multi-repo projects, limit to specific
+                                      packages (comma-separated). Default: all.
 
-  cell list               List all cells by status
-                          - Shows active cells
-                          - Shows queued cells
-                          - Shows blocked cells
+  cell list               List all cells across all registered projects
+                          - Queries GitHub issues by cell: labels
+                          - For multi-repo projects, queries each package repo
+                          - Shows active, queued, blocked, awaiting-review
 
   cell teardown <name>    Clean up a feature cell
                           - Drops database schema
                           - Removes .env.local
+
+  project list            List all registered projects
+                          - Shows repo, path, branch flow, scope template
+                          - Shows package count for multi-repo projects
+
+  project show <name>     Show full details for a project
+                          - Lists all packages with repos and paths
+                          - Shows per-package overrides (featureTarget, scopeOverrides)
 
   queue show              Display the merge queue
                           - Shows cells ready to merge
@@ -243,19 +485,26 @@ COMMANDS:
   queue next              Merge the next cell in queue
                           (Not yet implemented — use docs/merge-procedure.md)
 
-  infra setup <path> <name>  Set up Claude Code hooks and agent in a repo
+  infra setup <project>   Set up Claude Code hooks and agent in a repo
+                          - Resolves path from projects.json
                           - Creates .claude/hooks/ with scope enforcement
                           - Creates .claude/agents/ with cell-worker template
                           - Generates .claude/settings.json
-                          - Installs minimatch if needed
+
+  infra setup <path> <name>
+                          Legacy two-arg form (still supported)
 
   help                    Show this help message
 
 EXAMPLES:
-  auto-shop cell create gnubg-hints
+  auto-shop project list
+  auto-shop project show nodots-backgammon
+  auto-shop cell create pr-calc --project=nodots-backgammon --packages=types,core
+  auto-shop cell create full-feature --project=nodots-backgammon
+  auto-shop cell create email-provider --project=a2z-freight-claims
   auto-shop cell list
   auto-shop cell teardown gnubg-hints
-  auto-shop infra setup /path/to/repo my-project
+  auto-shop infra setup a2z-freight-claims
   auto-shop queue show
 
 DOCUMENTATION:
@@ -280,6 +529,16 @@ switch (command) {
       cellTeardown(arg2);
     } else {
       error('Usage: auto-shop cell <create|list|teardown>');
+    }
+    break;
+
+  case 'project':
+    if (arg1 === 'list') {
+      projectList();
+    } else if (arg1 === 'show') {
+      projectShow(arg2);
+    } else {
+      error('Usage: auto-shop project <list|show>');
     }
     break;
 

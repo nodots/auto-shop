@@ -1,22 +1,30 @@
 {
-  "feature": "descriptive-feature-name",
+  "feature": "",
   "project": "nodots-backgammon",
-  "branch": "feat/descriptive-feature-name",
-  "createdAt": "2026-02-23",
+  "branch": "feat/",
+  "createdAt": "",
+  "package": "",
+  "featureGroup": "",
   "allowedPaths": [
-    "src/features/{feature-slug}/**",
-    "test/features/{feature-slug}/**"
+    "src/**",
+    "__tests__/**",
+    "test/**",
+    "docs/**"
   ],
   "forbiddenPaths": [
-    "contracts/**",
-    "src/types/shared/**",
-    "src/index.ts",
     "package.json",
     "package-lock.json",
     "tsconfig.json",
-    ".github/**"
+    "tsconfig.*.json",
+    ".github/**",
+    ".env*",
+    "jest.config.*",
+    "vite.config.*",
+    "eslint.config.*",
+    "binding.gyp",
+    "drizzle.config.ts"
   ],
   "dependsOn": [],
   "blockedBy": [],
-  "estimatedScope": "Small — brief description"
+  "estimatedScope": ""
 }

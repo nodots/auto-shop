@@ -5,10 +5,12 @@ set -euo pipefail
 #
 # Usage:
 #   ./scripts/setup-claude-infra.sh <repo-path> <project-name>
+#   auto-shop infra setup <project-name>   (resolves path from projects.json)
 #
 # Example:
 #   ./scripts/setup-claude-infra.sh /Users/kenr/Code/nodots-backgammon/packages/gnubg-hints gnubg-hints
 #   ./scripts/setup-claude-infra.sh /Users/kenr/Code/a2z-freight-claims a2z-freight-claims
+#   auto-shop infra setup a2z-freight-claims
 #
 # What it does:
 #   1. Creates .claude/hooks/ and .claude/agents/ directories
@@ -150,17 +152,6 @@ cat > "$REPO_PATH/.claude/settings.json" << SETTINGS_EOF
         ]
       }
     ],
-    "TaskCompleted": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash .claude/hooks/check-handoff-on-complete.sh"
-          }
-        ]
-      }
-    ],
     "Stop": [
       {
         "matcher": "",
@@ -204,15 +195,15 @@ else
 fi
 
 # Test shell hooks
-if bash "$REPO_PATH/.claude/hooks/check-handoff-on-complete.sh" 2>/dev/null; then
-  echo "  TaskCompleted hook: OK"
+if bash "$REPO_PATH/.claude/hooks/check-handoff-on-stop.sh" 2>/dev/null; then
+  echo "  Stop hook: OK"
 else
   # On a feat/ branch without HANDOFF.md this is expected to fail
   BRANCH=$(git -C "$REPO_PATH" rev-parse --abbrev-ref HEAD 2>/dev/null)
   if [[ "$BRANCH" =~ ^feat/ ]]; then
-    echo "  TaskCompleted hook: OK (correctly blocks on feat/ branch without HANDOFF.md)"
+    echo "  Stop hook: OK (correctly blocks on feat/ branch without HANDOFF.md)"
   else
-    echo "  TaskCompleted hook: FAILED" >&2
+    echo "  Stop hook: FAILED" >&2
     exit 1
   fi
 fi

@@ -15,6 +15,7 @@
  *   auto-shop queue next              Merge next cell
  *   auto-shop infra setup <project>   Set up Claude Code hooks via project registry
  *   auto-shop prompt <issue-ref>     Generate agent prompt for a GitHub issue
+ *   auto-shop launch <issue-ref>    Generate prompt and launch remote session
  *   auto-shop help                    Show help
  */
 
@@ -498,12 +499,12 @@ function findProjectByRepo(repo) {
   const projects = loadProjects();
   for (const [name, proj] of Object.entries(projects)) {
     if (proj.repo === repo) {
-      return proj;
+      return { project: proj, localPath: proj.localPath };
     }
     if (proj.packages) {
-      for (const pkg of Object.values(proj.packages)) {
+      for (const [pkgName, pkg] of Object.entries(proj.packages)) {
         if (pkg.repo === repo) {
-          return proj;
+          return { project: proj, localPath: path.join(proj.localPath, pkg.path), package: pkgName };
         }
       }
     }
@@ -518,18 +519,13 @@ function slugify(text) {
     .replace(/^-+|-+$/g, '');
 }
 
-function promptGenerate(issueRef) {
-  if (!issueRef) {
-    error('Usage: auto-shop prompt <issue-ref> [--scope=<path>] [--clipboard]\n\n  <issue-ref> can be:\n    https://github.com/owner/repo/issues/123\n    owner/repo#123');
-  }
-
+function buildPrompt(issueRef) {
   const parsed = parseIssueRef(issueRef);
   if (!parsed) {
     error(`Could not parse issue reference: ${issueRef}\n\nExpected:\n  https://github.com/owner/repo/issues/123\n  owner/repo#123`);
   }
 
   const flags = parseFlags(process.argv);
-  const useClipboard = process.argv.includes('--clipboard');
   const issueUrl = `https://github.com/${parsed.repo}/issues/${parsed.number}`;
 
   // Fetch issue data
@@ -544,9 +540,10 @@ function promptGenerate(issueRef) {
     error(`Failed to fetch issue: gh issue view ${parsed.number} --repo ${parsed.repo}\n${err.stderr || err.message}`);
   }
 
-  // Resolve base branch from projects.json
-  const proj = findProjectByRepo(parsed.repo);
-  const baseBranch = proj ? proj.featureTarget : 'main';
+  // Resolve base branch and local path from projects.json
+  const match = findProjectByRepo(parsed.repo);
+  const baseBranch = match ? match.project.featureTarget : 'main';
+  const localPath = match ? match.localPath : null;
 
   // Derive branch name from SCOPE.json or issue title
   let shortDescription;
@@ -577,20 +574,61 @@ function promptGenerate(issueRef) {
   template = template.replace(/\[REPO\]/g, parsed.repo);
   template = template.replace(/\[REPO_NAME\]/g, parsed.repo.split('/')[1]);
 
-  // Build/test/lint: leave as-is (template already says to discover them)
-  // The placeholders [BUILD_COMMAND] etc. stay for the agent to fill in
+  return { prompt: template, parsed, localPath, issueJson };
+}
 
-  // Output
-  process.stdout.write(template);
+function promptGenerate(issueRef) {
+  if (!issueRef) {
+    error('Usage: auto-shop prompt <issue-ref> [--scope=<path>] [--clipboard]\n\n  <issue-ref> can be:\n    https://github.com/owner/repo/issues/123\n    owner/repo#123');
+  }
 
-  if (useClipboard) {
+  const { prompt } = buildPrompt(issueRef);
+
+  process.stdout.write(prompt);
+
+  if (process.argv.includes('--clipboard')) {
     try {
-      execSync('pbcopy', { input: template, stdio: ['pipe', 'pipe', 'pipe'] });
-      // Print to stderr so it doesn't mix with the prompt on stdout
+      execSync('pbcopy', { input: prompt, stdio: ['pipe', 'pipe', 'pipe'] });
       process.stderr.write('\n(Copied to clipboard)\n');
     } catch {
       process.stderr.write('\n(Failed to copy to clipboard — pbcopy not available)\n');
     }
+  }
+}
+
+function launch(issueRef) {
+  if (!issueRef) {
+    error('Usage: auto-shop launch <issue-ref>\n\n  <issue-ref> can be:\n    https://github.com/owner/repo/issues/123\n    owner/repo#123');
+  }
+
+  const { prompt, parsed, localPath } = buildPrompt(issueRef);
+
+  if (!localPath) {
+    error(`Repo ${parsed.repo} not found in projects.json — cannot resolve local path`);
+  }
+
+  if (!fs.existsSync(localPath)) {
+    error(`Local path does not exist: ${localPath}`);
+  }
+
+  info(`Issue:  ${parsed.repo}#${parsed.number}`);
+  info(`Repo:   ${localPath}`);
+  log('');
+
+  // Write prompt to a temp file to avoid shell escaping issues with large prompts
+  const tmpPrompt = path.join(require('os').tmpdir(), `auto-shop-prompt-${parsed.number}.md`);
+  fs.writeFileSync(tmpPrompt, prompt);
+  info(`Prompt: ${tmpPrompt}`);
+  log('');
+
+  try {
+    execSync(`claude --remote "$(cat "${tmpPrompt}")"`, {
+      cwd: localPath,
+      stdio: 'inherit',
+      shell: true,
+    });
+  } catch (err) {
+    error(`Remote session failed: ${err.message}`);
   }
 }
 
@@ -652,6 +690,11 @@ COMMANDS:
                           --scope:     Read SCOPE.json for branch name
                           --clipboard: Copy prompt to system clipboard
 
+  launch <issue-ref>      Generate prompt and launch a remote session
+                          - Resolves local path from projects.json
+                          - Runs claude --remote from the correct directory
+                          - Works from any directory
+
   help                    Show this help message
 
 EXAMPLES:
@@ -666,6 +709,7 @@ EXAMPLES:
   auto-shop queue show
   auto-shop prompt nodots/ai-calc-tutor-mvp#1
   auto-shop prompt https://github.com/nodots/ai-calc-tutor-mvp/issues/1 --clipboard
+  auto-shop launch nodots/PoslunsLaw#302
 
 DOCUMENTATION:
   See docs/coordinator-workflow.md for detailed instructions
@@ -722,6 +766,10 @@ switch (command) {
 
   case 'prompt':
     promptGenerate(arg1);
+    break;
+
+  case 'launch':
+    launch(arg1);
     break;
 
   case 'help':

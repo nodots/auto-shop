@@ -37,4 +37,21 @@ if [ $? -ne 0 ]; then
 fi
 
 echo "session-start-install-deps: dependencies ready" >&2
+
+# Diagnostic: check gh CLI and GH_TOKEN availability for remote sessions
+if command -v gh >/dev/null 2>&1; then
+  if [ -n "$GH_TOKEN" ]; then
+    echo "session-start-install-deps: gh CLI available, GH_TOKEN set" >&2
+    gh auth status 2>&1 || true
+  else
+    echo "session-start-install-deps: gh CLI available but GH_TOKEN is not set — gh operations may fail in remote sessions" >&2
+  fi
+else
+  if [ -n "$GH_TOKEN" ]; then
+    echo "session-start-install-deps: gh CLI not installed but GH_TOKEN is set — agent can use curl fallback" >&2
+  else
+    echo "session-start-install-deps: gh CLI not installed and GH_TOKEN not set — issue reading and PR creation will fail" >&2
+  fi
+fi
+
 exit 0

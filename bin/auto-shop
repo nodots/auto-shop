@@ -14,6 +14,7 @@
  *   auto-shop queue show              Show merge queue
  *   auto-shop queue next              Merge next cell
  *   auto-shop infra setup <project>   Set up Claude Code hooks via project registry
+ *   auto-shop prompt <issue-ref>     Generate agent prompt for a GitHub issue
  *   auto-shop help                    Show help
  */
 
@@ -444,6 +445,122 @@ function queueNext() {
   info('For now, use docs/merge-procedure.md as a guide');
 }
 
+function parseIssueRef(ref) {
+  // URL form: https://github.com/owner/repo/issues/123
+  const urlMatch = ref.match(/^https?:\/\/github\.com\/([^/]+\/[^/]+)\/issues\/(\d+)$/);
+  if (urlMatch) {
+    return { repo: urlMatch[1], number: parseInt(urlMatch[2], 10) };
+  }
+
+  // Shorthand form: owner/repo#123
+  const shortMatch = ref.match(/^([^/]+\/[^#]+)#(\d+)$/);
+  if (shortMatch) {
+    return { repo: shortMatch[1], number: parseInt(shortMatch[2], 10) };
+  }
+
+  return null;
+}
+
+function findProjectByRepo(repo) {
+  const projects = loadProjects();
+  for (const [name, proj] of Object.entries(projects)) {
+    if (proj.repo === repo) {
+      return proj;
+    }
+    if (proj.packages) {
+      for (const pkg of Object.values(proj.packages)) {
+        if (pkg.repo === repo) {
+          return proj;
+        }
+      }
+    }
+  }
+  return null;
+}
+
+function slugify(text) {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function promptGenerate(issueRef) {
+  if (!issueRef) {
+    error('Usage: auto-shop prompt <issue-ref> [--scope=<path>] [--clipboard]\n\n  <issue-ref> can be:\n    https://github.com/owner/repo/issues/123\n    owner/repo#123');
+  }
+
+  const parsed = parseIssueRef(issueRef);
+  if (!parsed) {
+    error(`Could not parse issue reference: ${issueRef}\n\nExpected:\n  https://github.com/owner/repo/issues/123\n  owner/repo#123`);
+  }
+
+  const flags = parseFlags(process.argv);
+  const useClipboard = process.argv.includes('--clipboard');
+  const issueUrl = `https://github.com/${parsed.repo}/issues/${parsed.number}`;
+
+  // Fetch issue data
+  let issueJson;
+  try {
+    const raw = execSync(
+      `gh issue view ${parsed.number} --repo ${parsed.repo} --json title,body,labels,number`,
+      { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }
+    );
+    issueJson = JSON.parse(raw);
+  } catch (err) {
+    error(`Failed to fetch issue: gh issue view ${parsed.number} --repo ${parsed.repo}\n${err.stderr || err.message}`);
+  }
+
+  // Resolve base branch from projects.json
+  const proj = findProjectByRepo(parsed.repo);
+  const baseBranch = proj ? proj.featureTarget : 'main';
+
+  // Derive branch name from SCOPE.json or issue title
+  let shortDescription;
+  if (flags.scope) {
+    try {
+      const scope = JSON.parse(fs.readFileSync(flags.scope, 'utf8'));
+      shortDescription = scope.branch ? scope.branch.replace(/^feat\//, '') : slugify(issueJson.title);
+    } catch {
+      warn(`Could not read --scope file: ${flags.scope}, deriving branch from issue title`);
+      shortDescription = slugify(issueJson.title);
+    }
+  } else {
+    shortDescription = slugify(issueJson.title);
+  }
+
+  // Read template
+  const templatePath = path.join(REPO_ROOT, 'templates', 'implement-issue.template.md');
+  if (!fs.existsSync(templatePath)) {
+    error(`Template not found: ${templatePath}`);
+  }
+  let template = fs.readFileSync(templatePath, 'utf8');
+
+  // Replace placeholders
+  template = template.replace(/\[ISSUE_URL\]/g, issueUrl);
+  template = template.replace(/\[BASE_BRANCH\]/g, baseBranch);
+  template = template.replace(/\[SHORT_DESCRIPTION\]/g, shortDescription);
+  template = template.replace(/\[ISSUE_NUMBER\]/g, String(parsed.number));
+  template = template.replace(/\[REPO\]/g, parsed.repo);
+  template = template.replace(/\[REPO_NAME\]/g, parsed.repo.split('/')[1]);
+
+  // Build/test/lint: leave as-is (template already says to discover them)
+  // The placeholders [BUILD_COMMAND] etc. stay for the agent to fill in
+
+  // Output
+  process.stdout.write(template);
+
+  if (useClipboard) {
+    try {
+      execSync('pbcopy', { input: template, stdio: ['pipe', 'pipe', 'pipe'] });
+      // Print to stderr so it doesn't mix with the prompt on stdout
+      process.stderr.write('\n(Copied to clipboard)\n');
+    } catch {
+      process.stderr.write('\n(Failed to copy to clipboard — pbcopy not available)\n');
+    }
+  }
+}
+
 function showHelp() {
   log(`
 auto-shop — Coordinator CLI for AI development cells
@@ -494,6 +611,14 @@ COMMANDS:
   infra setup <path> <name>
                           Legacy two-arg form (still supported)
 
+  prompt <issue-ref> [--scope=<path>] [--clipboard]
+                          Generate an agent prompt for a GitHub issue
+                          - <issue-ref> is a URL or owner/repo#N
+                          - Fills in implement-issue.template.md placeholders
+                          - Resolves base branch from projects.json
+                          --scope:     Read SCOPE.json for branch name
+                          --clipboard: Copy prompt to system clipboard
+
   help                    Show this help message
 
 EXAMPLES:
@@ -506,6 +631,8 @@ EXAMPLES:
   auto-shop cell teardown gnubg-hints
   auto-shop infra setup a2z-freight-claims
   auto-shop queue show
+  auto-shop prompt nodots/ai-calc-tutor-mvp#1
+  auto-shop prompt https://github.com/nodots/ai-calc-tutor-mvp/issues/1 --clipboard
 
 DOCUMENTATION:
   See docs/coordinator-workflow.md for detailed instructions
@@ -558,6 +685,10 @@ switch (command) {
     } else {
       error('Usage: auto-shop infra <setup>');
     }
+    break;
+
+  case 'prompt':
+    promptGenerate(arg1);
     break;
 
   case 'help':

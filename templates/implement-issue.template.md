@@ -5,22 +5,25 @@ You are implementing a GitHub issue. Work autonomously until the issue is fully 
 ## Issue
 
 **URL:** [ISSUE_URL]
+**Repository:** [REPO]
 
 Read the issue. The title, body, labels, and comments are your requirements. If the issue references other issues or PRs, read those too.
 
 ## Setup
 
-1. Read the issue with `gh issue view`
-2. Read the project's CLAUDE.md if one exists
-3. If `HANDOFF.md` exists at the repo root, read it — you are resuming a previous session
-4. Understand the repo: directory structure, language, framework, build system, test framework
-5. Check out or create the appropriate feature branch (see Branch Strategy below)
-6. Identify the files relevant to the issue before writing any code
+1. Verify you are in the correct repository: run `git remote -v` and confirm the remote contains `[REPO_NAME]`. If not, clone `https://github.com/[REPO].git` and work from there.
+2. Read the issue: run `gh issue view [ISSUE_NUMBER] --repo [REPO]`. If `gh` is not available, fall back to `curl -s -H "Authorization: token $GH_TOKEN" https://api.github.com/repos/[REPO]/issues/[ISSUE_NUMBER]`.
+3. Read the project's CLAUDE.md if one exists
+4. If `HANDOFF.md` exists at the repo root, read it — you are resuming a previous session
+5. Understand the repo: directory structure, language, framework, build system, test framework
+6. Check out or create the appropriate feature branch (see Branch Strategy below)
+7. Identify the files relevant to the issue before writing any code
 
 ## Branch Strategy
 
 - If a feature branch for this issue already exists, check it out
 - If not, create one from the base branch specified below
+- **Repository:** [REPO]
 - **Base branch:** [BASE_BRANCH]
 - **Branch name:** `feat/[SHORT_DESCRIPTION]`
 
@@ -133,6 +136,7 @@ Issue: [issue URL]
 
 3. Push the branch
 4. Open a PR against [BASE_BRANCH] with:
+   - `gh pr create --repo [REPO] --base [BASE_BRANCH] --title "..." --body "..."`
    - Title referencing the issue (e.g., `feat: add ELO rating calculation (#42)`)
    - Body containing the "What Was Done" and "Key Decisions" sections from HANDOFF.md
    - `Closes #[ISSUE_NUMBER]` in the body

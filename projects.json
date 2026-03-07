@@ -72,6 +72,14 @@
       "featureTarget": "main",
       "promotionPath": ["main"],
       "scopeTemplate": null
+    },
+    "ai-calc-tutor-mvp": {
+      "repo": "nodots/ai-calc-tutor-mvp",
+      "localPath": "/Users/kenr/Code/ai-calc-tutor-mvp",
+      "defaultBranch": "main",
+      "featureTarget": "development",
+      "promotionPath": ["development", "main"],
+      "scopeTemplate": null
     }
   }
 }

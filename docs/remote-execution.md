@@ -21,7 +21,31 @@ npm install -g @anthropic-ai/claude-code@latest
 claude --version   # should be 2.1.63 or higher
 ```
 
-### 2. Claude GitHub Application (nodots org)
+### 2. GitHub CLI Authentication (GH_TOKEN)
+
+Remote VMs do not have `gh auth login` configured. The `gh` CLI (and the agent's `curl` fallback) rely on a `GH_TOKEN` environment variable for API access.
+
+**One-time setup:**
+
+1. Create a GitHub fine-grained personal access token at [github.com/settings/tokens](https://github.com/settings/tokens)
+   - Scope: `repo` (read/write) for the `nodots` organization
+   - Recommended expiration: 90 days
+2. In the [Claude.ai cloud environment settings](https://claude.ai/settings), add the environment variable:
+   ```
+   GH_TOKEN=ghp_your_token_here
+   ```
+3. Optionally add `gh` to the cloud environment setup script if it is not pre-installed:
+   ```bash
+   # Install gh CLI (if not already available)
+   type -p curl >/dev/null || (sudo apt update && sudo apt install curl -y)
+   curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
+   echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+   sudo apt update && sudo apt install gh -y
+   ```
+
+The session-start hook will log whether `GH_TOKEN` and `gh` are available. If neither is present, the agent cannot read issues or create PRs.
+
+### 3. Claude GitHub Application (nodots org)
 
 The remote VM needs read access to your repository to check out code and run the agent. Grant this by installing the Claude GitHub Application on the `nodots` organization.
 
@@ -109,6 +133,8 @@ Before running a remote cell session, verify:
 
 - [ ] `claude --version` ≥ 2.1.63
 - [ ] Claude GitHub Application installed on `nodots` org with access to the target repo
+- [ ] `GH_TOKEN` configured in cloud environment settings (for `gh` CLI and API access)
+- [ ] `gh` CLI available on the remote VM (or agent can use `curl` fallback with `GH_TOKEN`)
 - [ ] `.claude/settings.json` present in the target repo with `SessionStart`, `PreToolUse`, and `Stop` hooks
 - [ ] `SCOPE.json` present on the feature branch
 - [ ] `auto-shop infra setup <project>` has been run (or `.claude/` committed to main)

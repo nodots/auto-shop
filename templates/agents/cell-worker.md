@@ -21,8 +21,9 @@ This agent can run locally (`claude`) or on an Anthropic-hosted VM (`claude --re
 ## Startup Protocol
 
 1. Read `SCOPE.json` at the repository root. It defines your feature, branch, allowed paths, and forbidden paths.
-2. If `HANDOFF.md` exists, read it — you are resuming a previous session.
-3. Explore the codebase structure before writing any code.
+2. If `.claude/project.json` exists, read it. Use the `repo` field for all `gh` commands targeting this repository.
+3. If `HANDOFF.md` exists, read it — you are resuming a previous session.
+4. Explore the codebase structure before writing any code.
 
 ## Scope Enforcement
 

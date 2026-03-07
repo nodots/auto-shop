@@ -54,4 +54,30 @@ else
   fi
 fi
 
+# --- Validate repo identity from .claude/project.json ---
+PROJECT_JSON="$GIT_ROOT/.claude/project.json"
+if [ -f "$PROJECT_JSON" ]; then
+  EXPECTED_REPO=""
+  # Parse repo field without jq dependency
+  EXPECTED_REPO=$(grep '"repo"' "$PROJECT_JSON" | head -1 | sed 's/.*"repo"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/')
+
+  if [ -n "$EXPECTED_REPO" ]; then
+    ACTUAL_URL=$(git -C "$GIT_ROOT" remote get-url origin 2>/dev/null || true)
+    if [ -n "$ACTUAL_URL" ]; then
+      # Extract owner/repo from SSH (git@github.com:owner/repo.git) or HTTPS (https://github.com/owner/repo.git)
+      ACTUAL_REPO=$(echo "$ACTUAL_URL" | sed -E 's#(https?://github\.com/|git@github\.com:)##; s/\.git$//')
+
+      if [ "$ACTUAL_REPO" = "$EXPECTED_REPO" ]; then
+        echo "session-start-install-deps: repo identity verified ($EXPECTED_REPO)" >&2
+      else
+        echo "session-start-install-deps: REPO MISMATCH" >&2
+        echo "  expected: $EXPECTED_REPO (from .claude/project.json)" >&2
+        echo "  actual:   $ACTUAL_REPO (from git remote origin)" >&2
+        echo "  Aborting session to prevent cross-repo operations." >&2
+        exit 1
+      fi
+    fi
+  fi
+fi
+
 exit 0

@@ -4,7 +4,7 @@ set -euo pipefail
 # setup-claude-infra.sh — Install Claude Code hooks and cell-worker agent in a target repo
 #
 # Usage:
-#   ./scripts/setup-claude-infra.sh <repo-path> <project-name>
+#   ./scripts/setup-claude-infra.sh <repo-path> <project-name> [<repo>] [<feature-target>]
 #   auto-shop infra setup <project-name>   (resolves path from projects.json)
 #
 # Example:
@@ -36,6 +36,8 @@ usage() {
 
 REPO_PATH="${1:-}"
 PROJECT_NAME="${2:-}"
+PROJECT_REPO="${3:-}"
+PROJECT_FEATURE_TARGET="${4:-}"
 
 if [ -z "$REPO_PATH" ] || [ -z "$PROJECT_NAME" ]; then
   usage
@@ -71,6 +73,20 @@ echo ""
 echo "Creating .claude/ directory structure..."
 mkdir -p "$REPO_PATH/.claude/hooks"
 mkdir -p "$REPO_PATH/.claude/agents"
+
+# --- Step 1b: Write .claude/project.json if not already present ---
+if [ ! -f "$REPO_PATH/.claude/project.json" ] && [ -n "$PROJECT_REPO" ]; then
+  echo "Writing .claude/project.json..."
+  cat > "$REPO_PATH/.claude/project.json" << PROJECT_EOF
+{
+  "project": "$PROJECT_NAME",
+  "repo": "$PROJECT_REPO",
+  "defaultBranch": "main",
+  "featureTarget": "${PROJECT_FEATURE_TARGET:-main}"
+}
+PROJECT_EOF
+  echo "  Created: .claude/project.json (repo: $PROJECT_REPO)"
+fi
 
 # --- Step 2: Copy hook scripts ---
 echo "Copying hook scripts..."
@@ -227,6 +243,7 @@ echo ""
 echo "--- Setup complete ---"
 echo ""
 echo "Files created:"
+echo "  .claude/project.json"
 echo "  .claude/settings.json"
 echo "  .claude/hooks/enforce-scope-pretooluse.js"
 echo "  .claude/hooks/check-handoff-on-complete.sh"

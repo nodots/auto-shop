@@ -11,7 +11,7 @@ Read the issue. The title, body, labels, and comments are your requirements. If 
 
 ## Setup
 
-1. Verify you are in the correct repository: run `git remote -v` and confirm the remote contains `[REPO_NAME]`. If not, clone `https://github.com/[REPO].git` and work from there.
+1. If `.claude/project.json` exists, read it and use its `repo` field for all GitHub operations (`gh` commands, PR creation). Otherwise, verify you are in the correct repository: run `git remote -v` and confirm the remote contains `[REPO_NAME]`. If neither matches, clone `https://github.com/[REPO].git` and work from there.
 2. Read the issue: run `gh issue view [ISSUE_NUMBER] --repo [REPO]`. If `gh` is not available, fall back to `curl -s -H "Authorization: token $GH_TOKEN" https://api.github.com/repos/[REPO]/issues/[ISSUE_NUMBER]`.
 3. Read the project's CLAUDE.md if one exists
 4. If `HANDOFF.md` exists at the repo root, read it — you are resuming a previous session

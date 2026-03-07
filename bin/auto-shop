@@ -430,9 +430,42 @@ function infraSetup(firstArg, secondArg) {
     error('Usage: auto-shop infra setup <project-name>\n       auto-shop infra setup <repo-path> <project-name>');
   }
 
+  // Write .claude/project.json with identity metadata
+  const proj = resolveProject(projectName);
+  const claudeDir = path.join(repoPath, '.claude');
+  if (!fs.existsSync(claudeDir)) {
+    fs.mkdirSync(claudeDir, { recursive: true });
+  }
+
+  const projectMeta = {
+    project: projectName,
+    repo: proj.repo,
+    defaultBranch: proj.defaultBranch,
+    featureTarget: proj.featureTarget,
+  };
+
+  // For package repos, find the package entry whose localPath matches repoPath
+  if (proj.packages) {
+    for (const [pkgName, pkg] of Object.entries(proj.packages)) {
+      const pkgPath = path.join(proj.localPath, pkg.path);
+      if (repoPath === pkgPath || repoPath === path.resolve(pkgPath)) {
+        projectMeta.package = pkgName;
+        projectMeta.repo = pkg.repo;
+        if (pkg.featureTarget) {
+          projectMeta.featureTarget = pkg.featureTarget;
+        }
+        break;
+      }
+    }
+  }
+
+  const projectJsonPath = path.join(claudeDir, 'project.json');
+  fs.writeFileSync(projectJsonPath, JSON.stringify(projectMeta, null, 2) + '\n');
+  info(`Wrote .claude/project.json (repo: ${projectMeta.repo})`);
+
   const setupScript = path.join(REPO_ROOT, 'scripts', 'setup-claude-infra.sh');
   try {
-    execSync(`bash "${setupScript}" "${repoPath}" "${projectName}"`, {
+    execSync(`bash "${setupScript}" "${repoPath}" "${projectName}" "${projectMeta.repo}" "${projectMeta.featureTarget}"`, {
       stdio: 'inherit'
     });
   } catch (err) {

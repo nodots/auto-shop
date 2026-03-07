@@ -311,6 +311,7 @@ To restart an existing cell after an agent session ends:
 | **docs/agent-teams.md** | Using Agent Teams for within-cell parallelism | Coordinators, agents |
 | **docs/context-management.md** | Context window, compaction, and file-based artifacts | Agents |
 | **docs/cross-repo-features.md** | Workflow for features spanning multiple repos | Coordinators |
+| **docs/remote-execution.md** | Running cell workers remotely with `claude --remote` | Coordinators |
 
 ### Templates
 

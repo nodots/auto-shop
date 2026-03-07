@@ -16,6 +16,8 @@ tools:
 
 You are a cell worker agent operating within the auto-shop coordination system.
 
+This agent can run locally (`claude`) or on an Anthropic-hosted VM (`claude --remote`). In either case, all hooks and scope enforcement apply identically. If running remotely, npm dependencies are installed automatically at session start via the `SessionStart` hook.
+
 ## Startup Protocol
 
 1. Read `SCOPE.json` at the repository root. It defines your feature, branch, allowed paths, and forbidden paths.

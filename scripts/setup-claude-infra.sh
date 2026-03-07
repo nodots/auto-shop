@@ -84,8 +84,12 @@ cp "$AUTO_SHOP_ROOT/scripts/hooks/check-handoff-on-complete.sh" \
 cp "$AUTO_SHOP_ROOT/scripts/hooks/check-handoff-on-stop.sh" \
    "$REPO_PATH/.claude/hooks/check-handoff-on-stop.sh"
 
+cp "$AUTO_SHOP_ROOT/scripts/hooks/session-start-install-deps.sh" \
+   "$REPO_PATH/.claude/hooks/session-start-install-deps.sh"
+
 chmod +x "$REPO_PATH/.claude/hooks/check-handoff-on-complete.sh"
 chmod +x "$REPO_PATH/.claude/hooks/check-handoff-on-stop.sh"
+chmod +x "$REPO_PATH/.claude/hooks/session-start-install-deps.sh"
 
 # --- Step 3: Find or install minimatch ---
 echo "Checking for minimatch..."
@@ -141,6 +145,17 @@ fi
 cat > "$REPO_PATH/.claude/settings.json" << SETTINGS_EOF
 {
   "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/session-start-install-deps.sh"
+          }
+        ]
+      }
+    ],
     "PreToolUse": [
       {
         "matcher": "Edit|Write",
@@ -216,6 +231,7 @@ echo "  .claude/settings.json"
 echo "  .claude/hooks/enforce-scope-pretooluse.js"
 echo "  .claude/hooks/check-handoff-on-complete.sh"
 echo "  .claude/hooks/check-handoff-on-stop.sh"
+echo "  .claude/hooks/session-start-install-deps.sh"
 echo "  .claude/agents/cell-worker-${PROJECT_NAME}.md"
 echo ""
 echo "Next steps:"

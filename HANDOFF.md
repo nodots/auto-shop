@@ -1,141 +1,80 @@
-# Handoff: ELO Ratings + Cross-Repo Workflow
-Date: 2026-03-03
-Status: blocked
+# Handoff: Add web GUI for coordinator workflow management
+
+Date: 2026-03-07
+Status: complete
+Branch: claude/add-web-gui-coordinator-Kyizj
+Issue: https://github.com/nodots/auto-shop/issues/29
 
 ## What Was Done
 
-### auto-shop (main, pushed)
+- Created `gui/` directory with Express + TypeScript API server and React + TypeScript (Vite) client
+- **Server** (`gui/server/`):
+  - Express API on port 3400 with CORS support
+  - PostgreSQL schema: `projects`, `packages`, `cells`, `cell_status_history`, `merge_queue` tables
+  - Routes: `/api/projects` (list, sync from projects.json, raw read), `/api/cells` (CRUD, status transitions, filtering), `/api/dashboard` (aggregated data), `/api/merge-queue` (ordered queue with reordering), `/api/git` (read files from branches via `git show`, list feature branches), `/api/health`
+  - Graceful degradation when database is unavailable
+  - Serves built client in production mode
+- **Client** (`gui/client/`):
+  - Vite dev server on port 5473 with API proxy to Express
+  - Dashboard page: capacity gauge (0-4 active cells), status counts with links, blocked cell alerts, ready PRs list, recent activity timeline
+  - Cells list page: filterable by status, sortable table
+  - Cell detail page: scope/blocker/handoff/history tabs, status transition buttons with optional notes, delete (teardown)
+  - Cell creation form: auto-generates branch name from feature, project selector from projects.json
+  - Projects page: displays all projects from projects.json with packages, sync-to-DB button
+  - Merge queue page: ordered list with up/down reordering and remove buttons
+  - Tailwind CSS styling, responsive layout
+  - TanStack React Query for data fetching with cache invalidation
 
-1. **New: `docs/cross-repo-features.md`** — documents the pattern for features spanning types -> core -> api: same branch name, dependency-order build/PR/merge, migration handling.
-2. **Updated: `docs/merge-procedure.md`** — fixed stale branch flow table (nodots-backgammon targets `feat/4.6.4-RC`, not `development`; removed gnubg-hints row). Added cross-reference to cross-repo doc.
-3. **Updated: `CLAUDE.md`** — added cross-repo doc to the documentation map.
+## Key Decisions
 
-### nodots-backgammon (feat/elo-ratings branches, pushed, PRs open)
+- **All code under `gui/`**: No modifications to existing files, as specified in the issue
+- **Filesystem + GitHub remain source of truth**: DB is a cache/sync layer; `/api/projects/raw` reads directly from `projects.json`
+- **No @dnd-kit or @monaco-editor**: Used simpler up/down buttons for queue reordering and `<pre>` for scope JSON display to keep the initial implementation focused. These can be added in Phase 4-5.
+- **No @octokit/rest integration yet**: Listed as a dependency in the issue but not wired up in Phase 1. The git routes use `git show` for local branch inspection.
+- **Graceful DB degradation**: Server starts even without PostgreSQL, logging a warning. API routes that need the DB will return errors, but `/api/projects/raw` and `/api/git/*` work without DB.
 
-ELO rating system implemented across three packages:
+## Files Modified
 
-**types** (PR [#53](https://github.com/nodots/nodots-backgammon-types/pull/53)):
-- New `src/elo.ts`: `EloConfig`, `EloCalculationResult`, `EloRating`, `DEFAULT_ELO_CONFIG`
-- Barrel export added to `src/index.ts`
-- Builds cleanly
+All new files under `gui/` — no existing files were modified.
 
-**core** (PR [#104](https://github.com/nodots/nodots-backgammon-core/pull/104)):
-- New `src/Services/EloCalculator.ts`: `expectedScore`, `getKFactor`, `calculate`, `prToElo`
-- New `src/Services/__tests__/EloCalculator.test.ts`: 19 tests, all passing
-- Barrel export added to `src/Services/index.ts`
-- Builds cleanly
+| Path | Purpose |
+|------|---------|
+| `gui/.gitignore` | Ignore node_modules, dist, tsbuildinfo |
+| `gui/server/package.json` | Server dependencies and scripts |
+| `gui/server/tsconfig.json` | TypeScript config for server |
+| `gui/server/src/index.ts` | Express app entry point |
+| `gui/server/src/db.ts` | PostgreSQL pool and schema initialization |
+| `gui/server/src/routes/projects.ts` | Project list, sync, and raw read routes |
+| `gui/server/src/routes/cells.ts` | Cell CRUD and status transitions |
+| `gui/server/src/routes/dashboard.ts` | Aggregated dashboard data |
+| `gui/server/src/routes/mergeQueue.ts` | Merge queue management |
+| `gui/server/src/routes/git.ts` | Git file read and branch listing |
+| `gui/client/package.json` | Client dependencies and scripts |
+| `gui/client/tsconfig.json` | TypeScript config for client |
+| `gui/client/vite.config.ts` | Vite config with API proxy |
+| `gui/client/tailwind.config.js` | Tailwind CSS config |
+| `gui/client/postcss.config.js` | PostCSS config for Tailwind |
+| `gui/client/index.html` | HTML entry point |
+| `gui/client/src/main.tsx` | React app entry with routing |
+| `gui/client/src/index.css` | Tailwind directives |
+| `gui/client/src/api.ts` | API client with TypeScript types |
+| `gui/client/src/components/Layout.tsx` | App shell with navigation |
+| `gui/client/src/components/StatusBadge.tsx` | Colored status badge component |
+| `gui/client/src/pages/Dashboard.tsx` | Dashboard with capacity, alerts, activity |
+| `gui/client/src/pages/CellsList.tsx` | Filterable cells table |
+| `gui/client/src/pages/CellDetail.tsx` | Cell detail with tabs and transitions |
+| `gui/client/src/pages/CellCreate.tsx` | Cell creation form |
+| `gui/client/src/pages/Projects.tsx` | Project registry display |
+| `gui/client/src/pages/MergeQueue.tsx` | Ordered merge queue |
 
-**api** (PR [#52](https://github.com/nodots/nodots-backgammon-api/pull/52)):
-- 3 ELO columns added to UsersTable (`eloRating`, `eloGamesPlayed`, `eloUpdatedAt`)
-- New `EloHistoryTable` with schema, operations, barrel exports
-- New `EloRouter` with 4 GET endpoints (user rating, history, leaderboard, game results)
-- `calculateAndStoreElo` function — auto-fires on game completion (fire-and-forget)
-- Router mounted on both main and test routers
-- Robot ELO seeding via `EloCalculator.prToElo(averagePR)` in `seed-robots.ts`
-- Drizzle migration: `0002_aromatic_the_hunter.sql`
-- Fixed: `.env.example` updated from v4.5 to v4.6
-- Fixed: `game.winner` polymorphism (can be string or object from JSONB)
-- Builds cleanly
+## Test Status
 
-### Verification completed
+- Server TypeScript compiles cleanly (`tsc --noEmit`)
+- Client TypeScript compiles cleanly (`tsc --noEmit`)
+- Client production build succeeds (`vite build`)
+- No test framework configured (project is documentation/coordination — no existing test infrastructure)
 
-- Migration applied to local dev DB (3 columns on users, elo_history table with indexes/FKs)
-- Robot ELO ratings verified correct (Grandmaster 2100 down to nbg-bot-v1 1100)
-- All 4 ELO endpoints return correct data
-- `calculateAndStoreElo` tested on a completed game: correctly saves history, updates human rating, skips robot update, idempotent on re-run
-- Core tests: 19/19 pass
-- All three packages build cleanly on Node 20
-- Test ELO data cleaned up from dev DB after verification
+## Notes
 
-### Branch state fixes applied
-
-All three `feat/elo-ratings` branches were reset from `development` (stale) to `feat/4.6.4-RC` (correct base) before implementing.
-
-## Current Blockers
-
-### Client cannot log in locally
-
-The web client at http://localhost:5437/ loads and fetches resources (200s/304s in network tab) but Auth0 login fails. This is NOT caused by ELO changes. Investigation found:
-
-- Client `.env` is a symlink to `.env.development` — this file was missing (gitignored, local-only). Created it from `.env.example`.
-- `.env.example` has `VITE_AUTH0_CLIENT_SECRET=your-client-secret` (placeholder). This may need the real secret, or Auth0 SPA config may need `http://localhost:5437` added as an allowed callback URL in the Auth0 dashboard.
-- The Auth0 error page ("Oops, something went wrong") appeared on `nodots-backgammon-dev.us.auth0.com/authorize` — this is an Auth0-side configuration issue.
-- API `.env.development` had stale `API_VERSION_PATH=/api/v4.5` — corrected to `/api/v4.6`.
-
-**Action needed:** Check Auth0 dashboard for `nodots-backgammon-dev` application:
-1. Allowed Callback URLs — must include `http://localhost:5437`
-2. Allowed Logout URLs — must include `http://localhost:5437`
-3. Allowed Web Origins — must include `http://localhost:5437`
-
-### ELO PRs not yet merged
-
-Merge order (strict):
-1. types PR#53
-2. core PR#104
-3. api PR#52
-
-All target `feat/4.6.4-RC`. Do not merge out of order.
-
-## Files Modified (nodots-backgammon)
-
-| Package | File | Action |
-|---------|------|--------|
-| types | `src/elo.ts` | New |
-| types | `src/index.ts` | Edit — barrel export |
-| core | `src/Services/EloCalculator.ts` | New |
-| core | `src/Services/__tests__/EloCalculator.test.ts` | New |
-| core | `src/Services/index.ts` | Edit — barrel export |
-| api | `src/db/Users/schema.ts` | Edit — 3 ELO columns |
-| api | `src/db/EloHistory/schema.ts` | New |
-| api | `src/db/EloHistory/operations.ts` | New |
-| api | `src/db/EloHistory/index.ts` | New |
-| api | `src/db/schema.ts` | Edit — EloHistory export |
-| api | `src/routes/elo.ts` | New |
-| api | `src/routes/games.ts` | Edit — ELO hook on completion |
-| api | `src/index.ts` | Edit — mount EloRouter |
-| api | `src/utils/seed-robots.ts` | Edit — seed robot ELO |
-| api | `.env.example` | Edit — v4.5 to v4.6 |
-| api | `drizzle/0002_aromatic_the_hunter.sql` | New |
-| api | `drizzle/meta/_journal.json` | Edit |
-| api | `drizzle/meta/0002_snapshot.json` | Edit |
-
-## Files Modified (auto-shop)
-
-| File | Action |
-|------|--------|
-| `docs/cross-repo-features.md` | New |
-| `docs/merge-procedure.md` | Edit — branch flow table, cross-repo reference |
-| `CLAUDE.md` | Edit — doc map entry |
-
-## Local Environment State
-
-- `packages/api/.env` — created from `.env.example` (v4.6), gitignored
-- `packages/api/.env.development` — corrected to v4.6, gitignored
-- `packages/client/.env.development` — created from `.env.example`, gitignored (symlinked from `.env`)
-- Migration `0002_aromatic_the_hunter.sql` applied to `nodots_backgammon_dev` DB
-- Test ELO data cleaned up (elo_history emptied, e2e-tests user rating reset to 1500)
-
-## How to Resume
-
-### Fix Auth0 (required for client testing)
-1. Log into Auth0 dashboard at https://manage.auth0.com
-2. Find the `nodots-backgammon-dev` application
-3. Add `http://localhost:5437` to Allowed Callback URLs, Logout URLs, and Web Origins
-4. Save
-
-### Test locally
-```bash
-nvm use 20
-cd packages/api && node -r ts-node/register/transpile-only src/index.ts &
-cd ../client && npx vite &
-# Open http://localhost:5437, log in, play a game to completion
-# Verify: curl http://localhost:3000/api/v4.6/elo/leaderboard | python3 -m json.tool
-```
-
-### Merge PRs (after client testing passes)
-Merge in strict order against `feat/4.6.4-RC`:
-1. types PR#53
-2. core PR#104
-3. api PR#52
-
-See `docs/cross-repo-features.md` for the full procedure.
+- The issue specifies 5 implementation phases. This PR covers Phase 1 (Foundation) and Phase 2-3 core features (cell detail, creation, status transitions). Phases 4-5 (drag-and-drop, Monaco editor, GitHub API integration, session checklists, mobile polish) can be follow-up work.
+- To run locally: `cd gui/server && npm run dev` and `cd gui/client && npm run dev`. Requires PostgreSQL with a `auto_shop_gui` database (or set `DATABASE_URL`).

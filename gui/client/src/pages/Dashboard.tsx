@@ -2,6 +2,18 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { fetchDashboard } from '../api';
 import StatusBadge from '../components/StatusBadge';
+import Box from '@mui/material/Box';
+import Typography from '@mui/material/Typography';
+import Paper from '@mui/material/Paper';
+import LinearProgress from '@mui/material/LinearProgress';
+import List from '@mui/material/List';
+import ListItem from '@mui/material/ListItem';
+import ListItemText from '@mui/material/ListItemText';
+import Alert from '@mui/material/Alert';
+import AlertTitle from '@mui/material/AlertTitle';
+import MuiLink from '@mui/material/Link';
+import CircularProgress from '@mui/material/CircularProgress';
+import Stack from '@mui/material/Stack';
 
 export default function Dashboard() {
   const { data, isLoading, error } = useQuery({
@@ -9,121 +21,138 @@ export default function Dashboard() {
     queryFn: fetchDashboard,
   });
 
-  if (isLoading) return <p className="text-gray-500">Loading dashboard...</p>;
-  if (error) return <p className="text-red-600">Error: {(error as Error).message}</p>;
+  if (isLoading) return <CircularProgress />;
+  if (error) return <Alert severity="error">{(error as Error).message}</Alert>;
   if (!data) return null;
 
   const capacityPct = (data.capacity.active / data.capacity.max) * 100;
   const capacityColor =
     data.capacity.active >= data.capacity.max
-      ? 'bg-red-500'
+      ? 'error'
       : data.capacity.active >= 3
-      ? 'bg-yellow-500'
-      : 'bg-green-500';
+      ? 'warning'
+      : 'success';
 
   return (
-    <div className="space-y-6">
-      <h2 className="text-2xl font-bold">Dashboard</h2>
+    <Stack spacing={3}>
+      <Typography variant="h5" fontWeight="bold">Dashboard</Typography>
 
       {/* Capacity gauge */}
-      <div className="bg-white rounded-lg shadow p-4">
-        <h3 className="text-sm font-medium text-gray-500 mb-2">Active Cell Capacity</h3>
-        <div className="flex items-center gap-4">
-          <div className="flex-1 bg-gray-200 rounded-full h-4">
-            <div
-              className={`${capacityColor} h-4 rounded-full transition-all`}
-              style={{ width: `${Math.min(capacityPct, 100)}%` }}
+      <Paper sx={{ p: 2 }}>
+        <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+          Active Cell Capacity
+        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Box sx={{ flex: 1 }}>
+            <LinearProgress
+              variant="determinate"
+              value={Math.min(capacityPct, 100)}
+              color={capacityColor as 'error' | 'warning' | 'success'}
+              sx={{ height: 12, borderRadius: 1 }}
             />
-          </div>
-          <span className="text-lg font-bold">
+          </Box>
+          <Typography variant="h6" fontWeight="bold">
             {data.capacity.active}/{data.capacity.max}
-          </span>
-        </div>
-      </div>
+          </Typography>
+        </Box>
+      </Paper>
 
       {/* Status counts */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5 }}>
         {Object.entries(data.counts).map(([status, count]) => (
-          <Link
+          <Paper
             key={status}
+            component={Link}
             to={`/cells?status=${status}`}
-            className="bg-white rounded-lg shadow p-4 hover:shadow-md transition-shadow"
+            sx={{
+              p: 2,
+              textDecoration: 'none',
+              flex: '1 1 120px',
+              '&:hover': { boxShadow: 3 },
+            }}
           >
-            <div className="text-2xl font-bold">{count}</div>
+            <Typography variant="h4" fontWeight="bold">{count}</Typography>
             <StatusBadge status={status} />
-          </Link>
+          </Paper>
         ))}
-      </div>
+      </Box>
 
       {/* Blocked cells alert */}
       {data.blockedCells.length > 0 && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <h3 className="font-medium text-red-800 mb-2">
-            Blocked Cells ({data.blockedCells.length})
-          </h3>
-          <ul className="space-y-2">
+        <Alert severity="error" variant="outlined">
+          <AlertTitle>Blocked Cells ({data.blockedCells.length})</AlertTitle>
+          <List dense disablePadding>
             {data.blockedCells.map((cell) => (
-              <li key={cell.id} className="flex items-center justify-between">
-                <Link to={`/cells/${cell.id}`} className="text-red-700 hover:underline font-medium">
-                  {cell.feature}
-                </Link>
-                <span className="text-sm text-red-600">{cell.project}</span>
-              </li>
+              <ListItem key={cell.id} disableGutters sx={{ py: 0.5 }}>
+                <ListItemText
+                  primary={
+                    <MuiLink component={Link} to={`/cells/${cell.id}`} underline="hover">
+                      {cell.feature}
+                    </MuiLink>
+                  }
+                  secondary={cell.project}
+                />
+              </ListItem>
             ))}
-          </ul>
-        </div>
+          </List>
+        </Alert>
       )}
 
       {/* Ready PRs */}
       {data.readyPRs.length > 0 && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-          <h3 className="font-medium text-yellow-800 mb-2">
-            Ready for Review ({data.readyPRs.length})
-          </h3>
-          <ul className="space-y-2">
+        <Alert severity="warning" variant="outlined">
+          <AlertTitle>Ready for Review ({data.readyPRs.length})</AlertTitle>
+          <List dense disablePadding>
             {data.readyPRs.map((cell) => (
-              <li key={cell.id} className="flex items-center justify-between">
-                <Link to={`/cells/${cell.id}`} className="text-yellow-700 hover:underline font-medium">
-                  {cell.feature}
-                </Link>
-                {cell.github_pr_url && (
-                  <a
-                    href={cell.github_pr_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm text-blue-600 hover:underline"
-                  >
-                    PR
-                  </a>
-                )}
-              </li>
+              <ListItem key={cell.id} disableGutters sx={{ py: 0.5 }}>
+                <ListItemText
+                  primary={
+                    <MuiLink component={Link} to={`/cells/${cell.id}`} underline="hover">
+                      {cell.feature}
+                    </MuiLink>
+                  }
+                  secondary={
+                    cell.githubPrUrl ? (
+                      <MuiLink href={cell.githubPrUrl} target="_blank" rel="noopener noreferrer">
+                        PR
+                      </MuiLink>
+                    ) : undefined
+                  }
+                />
+              </ListItem>
             ))}
-          </ul>
-        </div>
+          </List>
+        </Alert>
       )}
 
       {/* Recent activity */}
-      <div className="bg-white rounded-lg shadow p-4">
-        <h3 className="font-medium text-gray-700 mb-3">Recent Activity</h3>
+      <Paper sx={{ p: 2 }}>
+        <Typography variant="subtitle1" fontWeight="medium" gutterBottom>
+          Recent Activity
+        </Typography>
         {data.recentActivity.length === 0 ? (
-          <p className="text-gray-400 text-sm">No recent activity</p>
+          <Typography color="text.disabled" variant="body2">No recent activity</Typography>
         ) : (
-          <ul className="space-y-2 text-sm">
+          <List dense disablePadding>
             {data.recentActivity.map((entry) => (
-              <li key={entry.id} className="flex items-center gap-2">
-                <span className="text-gray-400 w-36 shrink-0">
-                  {new Date(entry.changed_at).toLocaleString()}
-                </span>
-                <span className="font-medium">{entry.feature}</span>
-                {entry.from_status && <StatusBadge status={entry.from_status} />}
-                <span className="text-gray-400">&rarr;</span>
-                <StatusBadge status={entry.to_status} />
-                {entry.note && <span className="text-gray-500 truncate">{entry.note}</span>}
-              </li>
+              <ListItem key={entry.id} disableGutters sx={{ gap: 1 }}>
+                <Typography variant="caption" color="text.secondary" sx={{ width: 150, flexShrink: 0 }}>
+                  {new Date(entry.changedAt).toLocaleString()}
+                </Typography>
+                <Typography variant="body2" fontWeight="medium">{entry.feature}</Typography>
+                {entry.fromStatus && <StatusBadge status={entry.fromStatus} />}
+                <Typography color="text.disabled">&rarr;</Typography>
+                <StatusBadge status={entry.toStatus} />
+                {entry.note && (
+                  <Typography variant="body2" color="text.secondary" noWrap>
+                    {entry.note}
+                  </Typography>
+                )}
+              </ListItem>
             ))}
-          </ul>
+          </List>
         )}
-      </div>
-    </div>
+      </Paper>
+    </Stack>
   );
 }

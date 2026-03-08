@@ -1,5 +1,7 @@
 import { Router } from 'express';
-import pool from '../db.js';
+import { eq, desc, and } from 'drizzle-orm';
+import { db } from '../db.js';
+import { cells, cellStatusHistory } from '../db/schema.js';
 
 const router = Router();
 
@@ -7,26 +9,17 @@ const router = Router();
 router.get('/', async (req, res) => {
   try {
     const { status, project } = req.query;
-    let query = 'SELECT * FROM cells';
-    const params: string[] = [];
-    const conditions: string[] = [];
+    const conditions = [];
 
-    if (status) {
-      params.push(status as string);
-      conditions.push(`status = $${params.length}`);
-    }
-    if (project) {
-      params.push(project as string);
-      conditions.push(`project = $${params.length}`);
-    }
+    if (status) conditions.push(eq(cells.status, status as typeof cells.status.enumValues[number]));
+    if (project) conditions.push(eq(cells.project, project as string));
 
-    if (conditions.length > 0) {
-      query += ' WHERE ' + conditions.join(' AND ');
-    }
+    const rows = await db
+      .select()
+      .from(cells)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(cells.updatedAt));
 
-    query += ' ORDER BY updated_at DESC';
-
-    const { rows } = await pool.query(query, params);
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: String(err) });
@@ -36,17 +29,21 @@ router.get('/', async (req, res) => {
 // GET /api/cells/:id — get single cell with history
 router.get('/:id', async (req, res) => {
   try {
-    const { rows: cells } = await pool.query('SELECT * FROM cells WHERE id = $1', [req.params.id]);
-    if (cells.length === 0) {
+    const cell = await db.query.cells.findFirst({
+      where: eq(cells.id, parseInt(req.params.id)),
+    });
+
+    if (!cell) {
       return res.status(404).json({ error: 'Cell not found' });
     }
 
-    const { rows: history } = await pool.query(
-      'SELECT * FROM cell_status_history WHERE cell_id = $1 ORDER BY changed_at DESC',
-      [req.params.id]
-    );
+    const history = await db
+      .select()
+      .from(cellStatusHistory)
+      .where(eq(cellStatusHistory.cellId, cell.id))
+      .orderBy(desc(cellStatusHistory.changedAt));
 
-    res.json({ ...cells[0], history });
+    res.json({ ...cell, history });
   } catch (err) {
     res.status(500).json({ error: String(err) });
   }
@@ -55,25 +52,31 @@ router.get('/:id', async (req, res) => {
 // POST /api/cells — create a new cell
 router.post('/', async (req, res) => {
   try {
-    const { feature, project, branch, scope, github_issue_url } = req.body;
+    const { feature, project, branch, scope, githubIssueUrl } = req.body;
     if (!feature || !project || !branch) {
       return res.status(400).json({ error: 'feature, project, and branch are required' });
     }
 
-    const { rows } = await pool.query(
-      `INSERT INTO cells (feature, project, branch, status, scope, github_issue_url)
-       VALUES ($1, $2, $3, 'queued', $4, $5)
-       RETURNING *`,
-      [feature, project, branch, scope || null, github_issue_url || null]
-    );
+    const [cell] = await db
+      .insert(cells)
+      .values({
+        feature,
+        project,
+        branch,
+        status: 'queued',
+        scope: scope || null,
+        githubIssueUrl: githubIssueUrl || null,
+      })
+      .returning();
 
-    await pool.query(
-      `INSERT INTO cell_status_history (cell_id, from_status, to_status, note)
-       VALUES ($1, NULL, 'queued', 'Cell created')`,
-      [rows[0].id]
-    );
+    await db.insert(cellStatusHistory).values({
+      cellId: cell.id,
+      fromStatus: null,
+      toStatus: 'queued',
+      note: 'Cell created',
+    });
 
-    res.status(201).json(rows[0]);
+    res.status(201).json(cell);
   } catch (err) {
     res.status(500).json({ error: String(err) });
   }
@@ -88,23 +91,28 @@ router.patch('/:id/status', async (req, res) => {
       return res.status(400).json({ error: `Invalid status. Must be one of: ${validStatuses.join(', ')}` });
     }
 
-    const { rows: current } = await pool.query('SELECT status FROM cells WHERE id = $1', [req.params.id]);
-    if (current.length === 0) {
+    const current = await db.query.cells.findFirst({
+      where: eq(cells.id, parseInt(req.params.id)),
+    });
+
+    if (!current) {
       return res.status(404).json({ error: 'Cell not found' });
     }
 
-    const { rows } = await pool.query(
-      `UPDATE cells SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING *`,
-      [status, req.params.id]
-    );
+    const [updated] = await db
+      .update(cells)
+      .set({ status, updatedAt: new Date() })
+      .where(eq(cells.id, parseInt(req.params.id)))
+      .returning();
 
-    await pool.query(
-      `INSERT INTO cell_status_history (cell_id, from_status, to_status, note)
-       VALUES ($1, $2, $3, $4)`,
-      [req.params.id, current[0].status, status, note || null]
-    );
+    await db.insert(cellStatusHistory).values({
+      cellId: parseInt(req.params.id),
+      fromStatus: current.status,
+      toStatus: status,
+      note: note || null,
+    });
 
-    res.json(rows[0]);
+    res.json(updated);
   } catch (err) {
     res.status(500).json({ error: String(err) });
   }
@@ -113,48 +121,30 @@ router.patch('/:id/status', async (req, res) => {
 // PATCH /api/cells/:id — update cell fields
 router.patch('/:id', async (req, res) => {
   try {
-    const { scope, blocker, handoff, github_issue_url, github_pr_url } = req.body;
-    const updates: string[] = [];
-    const params: any[] = [];
+    const { scope, blocker, handoff, githubIssueUrl, githubPrUrl } = req.body;
+    const updates: Record<string, unknown> = { updatedAt: new Date() };
 
-    if (scope !== undefined) {
-      params.push(JSON.stringify(scope));
-      updates.push(`scope = $${params.length}`);
-    }
-    if (blocker !== undefined) {
-      params.push(blocker);
-      updates.push(`blocker = $${params.length}`);
-    }
-    if (handoff !== undefined) {
-      params.push(handoff);
-      updates.push(`handoff = $${params.length}`);
-    }
-    if (github_issue_url !== undefined) {
-      params.push(github_issue_url);
-      updates.push(`github_issue_url = $${params.length}`);
-    }
-    if (github_pr_url !== undefined) {
-      params.push(github_pr_url);
-      updates.push(`github_pr_url = $${params.length}`);
-    }
+    if (scope !== undefined) updates.scope = scope;
+    if (blocker !== undefined) updates.blocker = blocker;
+    if (handoff !== undefined) updates.handoff = handoff;
+    if (githubIssueUrl !== undefined) updates.githubIssueUrl = githubIssueUrl;
+    if (githubPrUrl !== undefined) updates.githubPrUrl = githubPrUrl;
 
-    if (updates.length === 0) {
+    if (Object.keys(updates).length === 1) {
       return res.status(400).json({ error: 'No valid fields to update' });
     }
 
-    updates.push('updated_at = NOW()');
-    params.push(req.params.id);
+    const [updated] = await db
+      .update(cells)
+      .set(updates)
+      .where(eq(cells.id, parseInt(req.params.id)))
+      .returning();
 
-    const { rows } = await pool.query(
-      `UPDATE cells SET ${updates.join(', ')} WHERE id = $${params.length} RETURNING *`,
-      params
-    );
-
-    if (rows.length === 0) {
+    if (!updated) {
       return res.status(404).json({ error: 'Cell not found' });
     }
 
-    res.json(rows[0]);
+    res.json(updated);
   } catch (err) {
     res.status(500).json({ error: String(err) });
   }
@@ -163,11 +153,16 @@ router.patch('/:id', async (req, res) => {
 // DELETE /api/cells/:id — delete (teardown) a cell
 router.delete('/:id', async (req, res) => {
   try {
-    const { rows } = await pool.query('DELETE FROM cells WHERE id = $1 RETURNING *', [req.params.id]);
-    if (rows.length === 0) {
+    const [deleted] = await db
+      .delete(cells)
+      .where(eq(cells.id, parseInt(req.params.id)))
+      .returning();
+
+    if (!deleted) {
       return res.status(404).json({ error: 'Cell not found' });
     }
-    res.json({ deleted: rows[0] });
+
+    res.json({ deleted });
   } catch (err) {
     res.status(500).json({ error: String(err) });
   }

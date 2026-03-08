@@ -31,13 +31,13 @@ export const fetchCells = (params?: { status?: string; project?: string }) => {
 
 export const fetchCell = (id: number) => fetchJson<CellRow & { history: StatusHistoryRow[] }>(`/cells/${id}`);
 
-export const createCell = (data: { feature: string; project: string; branch: string; scope?: object; github_issue_url?: string }) =>
+export const createCell = (data: { feature: string; project: string; branch: string; scope?: object; githubIssueUrl?: string }) =>
   fetchJson<CellRow>('/cells', { method: 'POST', body: JSON.stringify(data) });
 
 export const updateCellStatus = (id: number, status: string, note?: string) =>
   fetchJson<CellRow>(`/cells/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status, note }) });
 
-export const updateCell = (id: number, data: Partial<Pick<CellRow, 'scope' | 'blocker' | 'handoff' | 'github_issue_url' | 'github_pr_url'>>) =>
+export const updateCell = (id: number, data: Partial<Pick<CellRow, 'scope' | 'blocker' | 'handoff' | 'githubIssueUrl' | 'githubPrUrl'>>) =>
   fetchJson<CellRow>(`/cells/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
 
 export const deleteCell = (id: number) =>
@@ -45,12 +45,25 @@ export const deleteCell = (id: number) =>
 
 // Merge queue
 export const fetchMergeQueue = () => fetchJson<MergeQueueRow[]>('/merge-queue');
-export const addToMergeQueue = (cell_id: number, depends_on?: number[]) =>
-  fetchJson<MergeQueueRow>('/merge-queue', { method: 'POST', body: JSON.stringify({ cell_id, depends_on }) });
+export const addToMergeQueue = (cellId: number, dependsOn?: number[]) =>
+  fetchJson<MergeQueueRow>('/merge-queue', { method: 'POST', body: JSON.stringify({ cell_id: cellId, depends_on: dependsOn }) });
 export const reorderMergeQueue = (order: { id: number; position: number }[]) =>
   fetchJson<MergeQueueRow[]>('/merge-queue/reorder', { method: 'PATCH', body: JSON.stringify({ order }) });
 export const removeFromMergeQueue = (id: number) =>
   fetchJson<{ deleted: MergeQueueRow }>(`/merge-queue/${id}`, { method: 'DELETE' });
+
+// Scheduler
+export const fetchSchedulerStatus = () => fetchJson<SchedulerStatus>('/scheduler/status');
+export const pauseScheduler = () => fetchJson<{ paused: boolean }>('/scheduler/pause', { method: 'POST' });
+export const resumeScheduler = () => fetchJson<{ paused: boolean }>('/scheduler/resume', { method: 'POST' });
+export const triggerScan = () => fetchJson<{ triggered: boolean }>('/scheduler/scan', { method: 'POST' });
+export const stopScheduler = () => fetchJson<{ status: string }>('/scheduler/stop', { method: 'POST' });
+export const removeFromSchedulerQueue = (issueRef: string) =>
+  fetchJson<{ removed: boolean }>(`/scheduler/queue/${encodeURIComponent(issueRef)}`, { method: 'DELETE' });
+export const killSession = (issueRef: string) =>
+  fetchJson<{ killed: boolean }>(`/scheduler/kill/${encodeURIComponent(issueRef)}`, { method: 'POST' });
+export const fetchSessionLog = (issueRef: string, lines = 100) =>
+  fetchJson<{ issueRef: string; log: string }>(`/scheduler/logs/${encodeURIComponent(issueRef)}?lines=${lines}`);
 
 // Types
 export interface DashboardData {
@@ -75,13 +88,13 @@ export interface ProjectRow {
   id: number;
   name: string;
   repo: string;
-  local_path: string;
-  default_branch: string;
-  feature_target: string;
-  promotion_path: string[];
-  scope_template: string | null;
+  localPath: string;
+  defaultBranch: string;
+  featureTarget: string;
+  promotionPath: string[];
+  scopeTemplate: string | null;
   packages: { name: string; repo: string; path: string; featureTarget?: string; scopeOverrides?: object }[] | null;
-  synced_at: string;
+  syncedAt: string;
 }
 
 export interface CellRow {
@@ -93,30 +106,74 @@ export interface CellRow {
   scope: object | null;
   blocker: string | null;
   handoff: string | null;
-  github_issue_url: string | null;
-  github_pr_url: string | null;
-  created_at: string;
-  updated_at: string;
+  githubIssueUrl: string | null;
+  githubPrUrl: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface StatusHistoryRow {
   id: number;
-  cell_id: number;
-  from_status: string | null;
-  to_status: string;
-  changed_at: string;
+  cellId: number;
+  fromStatus: string | null;
+  toStatus: string;
+  changedAt: string;
   note: string | null;
+}
+
+export interface SchedulerSession {
+  issueRef: string;
+  repo: string;
+  number: number;
+  title: string;
+  branch: string;
+  pid: number;
+  logFile: string;
+  startedAt: string;
+}
+
+export interface SchedulerQueueItem {
+  issueRef: string;
+  repo: string;
+  number: number;
+  title: string;
+  discoveredAt: string;
+}
+
+export interface SchedulerCompleted {
+  issueRef: string;
+  repo: string;
+  number: number;
+  title: string;
+  branch: string;
+  startedAt: string;
+  completedAt: string;
+  exitCode: number;
+  logFile: string;
+}
+
+export interface SchedulerStatus {
+  status: string;
+  startedAt: string | null;
+  lastScanAt: string | null;
+  paused: boolean;
+  activeSessions: SchedulerSession[];
+  activeCount: number;
+  maxSessions: number;
+  queue: SchedulerQueueItem[];
+  queueSize: number;
+  completed: SchedulerCompleted[];
 }
 
 export interface MergeQueueRow {
   id: number;
-  cell_id: number;
+  cellId: number;
   position: number;
-  depends_on: number[] | null;
-  added_at: string;
+  dependsOn: number[] | null;
+  addedAt: string;
   feature: string;
   project: string;
   branch: string;
   status: string;
-  github_pr_url: string | null;
+  githubPrUrl: string | null;
 }

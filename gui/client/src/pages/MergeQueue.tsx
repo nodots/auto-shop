@@ -1,6 +1,18 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fetchMergeQueue, removeFromMergeQueue, reorderMergeQueue } from '../api';
 import StatusBadge from '../components/StatusBadge';
+import Typography from '@mui/material/Typography';
+import Paper from '@mui/material/Paper';
+import Button from '@mui/material/Button';
+import IconButton from '@mui/material/IconButton';
+import Box from '@mui/material/Box';
+import MuiLink from '@mui/material/Link';
+import CircularProgress from '@mui/material/CircularProgress';
+import Alert from '@mui/material/Alert';
+import Stack from '@mui/material/Stack';
+import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
+import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
+import DeleteIcon from '@mui/icons-material/Delete';
 
 export default function MergeQueue() {
   const queryClient = useQueryClient();
@@ -31,75 +43,72 @@ export default function MergeQueue() {
     reorderMutation.mutate(order);
   };
 
-  if (isLoading) return <p className="text-gray-500">Loading merge queue...</p>;
-  if (error) return <p className="text-red-600">Error: {(error as Error).message}</p>;
+  if (isLoading) return <CircularProgress />;
+  if (error) return <Alert severity="error">{(error as Error).message}</Alert>;
 
   return (
-    <div className="space-y-6">
-      <h2 className="text-2xl font-bold">Merge Queue</h2>
+    <Stack spacing={3}>
+      <Typography variant="h5" fontWeight="bold">Merge Queue</Typography>
 
       {!queue || queue.length === 0 ? (
-        <p className="text-gray-400 py-8 text-center">Merge queue is empty</p>
+        <Typography color="text.disabled" align="center" sx={{ py: 4 }}>
+          Merge queue is empty
+        </Typography>
       ) : (
-        <div className="space-y-2">
+        <Stack spacing={1}>
           {queue.map((item, index) => (
-            <div
-              key={item.id}
-              className="bg-white rounded-lg shadow p-4 flex items-center gap-4"
-            >
-              <span className="text-2xl font-bold text-gray-300 w-8 text-center">
+            <Paper key={item.id} sx={{ p: 2, display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Typography variant="h5" fontWeight="bold" color="text.disabled" sx={{ width: 32, textAlign: 'center' }}>
                 {index + 1}
-              </span>
+              </Typography>
 
-              <div className="flex-1">
-                <div className="font-medium">{item.feature}</div>
-                <div className="text-sm text-gray-500">
+              <Box sx={{ flex: 1 }}>
+                <Typography fontWeight="medium">{item.feature}</Typography>
+                <Typography variant="body2" color="text.secondary">
                   {item.project} &middot;{' '}
-                  <span className="font-mono text-xs">{item.branch}</span>
-                </div>
-              </div>
+                  <Typography component="span" fontFamily="monospace" fontSize="0.75rem">
+                    {item.branch}
+                  </Typography>
+                </Typography>
+              </Box>
 
               <StatusBadge status={item.status} />
 
-              {item.github_pr_url && (
-                <a
-                  href={item.github_pr_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm text-blue-600 hover:underline"
-                >
+              {item.githubPrUrl && (
+                <MuiLink href={item.githubPrUrl} target="_blank" rel="noopener noreferrer" variant="body2">
                   PR
-                </a>
+                </MuiLink>
               )}
 
-              <div className="flex flex-col gap-1">
-                <button
+              <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                <IconButton
+                  size="small"
                   onClick={() => moveItem(index, 'up')}
                   disabled={index === 0 || reorderMutation.isPending}
-                  className="px-2 py-0.5 text-xs border rounded hover:bg-gray-50 disabled:opacity-30"
                 >
-                  Up
-                </button>
-                <button
+                  <ArrowUpwardIcon fontSize="small" />
+                </IconButton>
+                <IconButton
+                  size="small"
                   onClick={() => moveItem(index, 'down')}
                   disabled={index === queue.length - 1 || reorderMutation.isPending}
-                  className="px-2 py-0.5 text-xs border rounded hover:bg-gray-50 disabled:opacity-30"
                 >
-                  Down
-                </button>
-              </div>
+                  <ArrowDownwardIcon fontSize="small" />
+                </IconButton>
+              </Box>
 
-              <button
+              <IconButton
+                size="small"
+                color="error"
                 onClick={() => removeMutation.mutate(item.id)}
                 disabled={removeMutation.isPending}
-                className="text-red-500 hover:text-red-700 text-sm disabled:opacity-50"
               >
-                Remove
-              </button>
-            </div>
+                <DeleteIcon fontSize="small" />
+              </IconButton>
+            </Paper>
           ))}
-        </div>
+        </Stack>
       )}
-    </div>
+    </Stack>
   );
 }

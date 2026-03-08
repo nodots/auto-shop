@@ -1,17 +1,30 @@
 import { Router } from 'express';
-import pool from '../db.js';
+import { eq, asc, sql } from 'drizzle-orm';
+import { db } from '../db.js';
+import { cells, mergeQueue } from '../db/schema.js';
 
 const router = Router();
 
 // GET /api/merge-queue
 router.get('/', async (_req, res) => {
   try {
-    const { rows } = await pool.query(
-      `SELECT mq.*, c.feature, c.project, c.branch, c.status, c.github_pr_url
-       FROM merge_queue mq
-       JOIN cells c ON c.id = mq.cell_id
-       ORDER BY mq.position ASC`
-    );
+    const rows = await db
+      .select({
+        id: mergeQueue.id,
+        cellId: mergeQueue.cellId,
+        position: mergeQueue.position,
+        dependsOn: mergeQueue.dependsOn,
+        addedAt: mergeQueue.addedAt,
+        feature: cells.feature,
+        project: cells.project,
+        branch: cells.branch,
+        status: cells.status,
+        githubPrUrl: cells.githubPrUrl,
+      })
+      .from(mergeQueue)
+      .innerJoin(cells, eq(cells.id, mergeQueue.cellId))
+      .orderBy(asc(mergeQueue.position));
+
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: String(err) });
@@ -26,16 +39,20 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'cell_id is required' });
     }
 
-    // Get max position
-    const { rows: maxRows } = await pool.query('SELECT COALESCE(MAX(position), 0) + 1 as next FROM merge_queue');
-    const position = maxRows[0].next;
+    const [{ next }] = await db
+      .select({ next: sql<number>`coalesce(max(${mergeQueue.position}), 0) + 1` })
+      .from(mergeQueue);
 
-    const { rows } = await pool.query(
-      `INSERT INTO merge_queue (cell_id, position, depends_on) VALUES ($1, $2, $3) RETURNING *`,
-      [cell_id, position, depends_on || null]
-    );
+    const [row] = await db
+      .insert(mergeQueue)
+      .values({
+        cellId: cell_id,
+        position: next,
+        dependsOn: depends_on || null,
+      })
+      .returning();
 
-    res.status(201).json(rows[0]);
+    res.status(201).json(row);
   } catch (err) {
     res.status(500).json({ error: String(err) });
   }
@@ -44,21 +61,34 @@ router.post('/', async (req, res) => {
 // PATCH /api/merge-queue/reorder — reorder the queue
 router.patch('/reorder', async (req, res) => {
   try {
-    const { order } = req.body; // array of { id, position }
+    const { order } = req.body;
     if (!Array.isArray(order)) {
       return res.status(400).json({ error: 'order must be an array of { id, position }' });
     }
 
     for (const item of order) {
-      await pool.query('UPDATE merge_queue SET position = $1 WHERE id = $2', [item.position, item.id]);
+      await db
+        .update(mergeQueue)
+        .set({ position: item.position })
+        .where(eq(mergeQueue.id, item.id));
     }
 
-    const { rows } = await pool.query(
-      `SELECT mq.*, c.feature, c.project, c.branch, c.status, c.github_pr_url
-       FROM merge_queue mq
-       JOIN cells c ON c.id = mq.cell_id
-       ORDER BY mq.position ASC`
-    );
+    const rows = await db
+      .select({
+        id: mergeQueue.id,
+        cellId: mergeQueue.cellId,
+        position: mergeQueue.position,
+        dependsOn: mergeQueue.dependsOn,
+        addedAt: mergeQueue.addedAt,
+        feature: cells.feature,
+        project: cells.project,
+        branch: cells.branch,
+        status: cells.status,
+        githubPrUrl: cells.githubPrUrl,
+      })
+      .from(mergeQueue)
+      .innerJoin(cells, eq(cells.id, mergeQueue.cellId))
+      .orderBy(asc(mergeQueue.position));
 
     res.json(rows);
   } catch (err) {
@@ -69,11 +99,16 @@ router.patch('/reorder', async (req, res) => {
 // DELETE /api/merge-queue/:id
 router.delete('/:id', async (req, res) => {
   try {
-    const { rows } = await pool.query('DELETE FROM merge_queue WHERE id = $1 RETURNING *', [req.params.id]);
-    if (rows.length === 0) {
+    const [deleted] = await db
+      .delete(mergeQueue)
+      .where(eq(mergeQueue.id, parseInt(req.params.id)))
+      .returning();
+
+    if (!deleted) {
       return res.status(404).json({ error: 'Queue entry not found' });
     }
-    res.json({ deleted: rows[0] });
+
+    res.json({ deleted });
   } catch (err) {
     res.status(500).json({ error: String(err) });
   }

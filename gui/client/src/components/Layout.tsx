@@ -1,41 +1,60 @@
 import { NavLink, Outlet } from 'react-router-dom';
+import AppBar from '@mui/material/AppBar';
+import Toolbar from '@mui/material/Toolbar';
+import Typography from '@mui/material/Typography';
+import Button from '@mui/material/Button';
+import IconButton from '@mui/material/IconButton';
+import Container from '@mui/material/Container';
+import Box from '@mui/material/Box';
+import LightModeIcon from '@mui/icons-material/LightMode';
+import DarkModeIcon from '@mui/icons-material/DarkMode';
+import { useThemeMode } from '../ThemeContext';
 
 const navItems = [
   { to: '/', label: 'Dashboard' },
   { to: '/cells', label: 'Cells' },
   { to: '/projects', label: 'Projects' },
   { to: '/merge-queue', label: 'Merge Queue' },
+  { to: '/scheduler', label: 'Scheduler' },
 ];
 
 export default function Layout() {
+  const { mode, toggleMode } = useThemeMode();
+
   return (
-    <div className="min-h-screen flex flex-col">
-      <header className="bg-gray-900 text-white">
-        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-          <h1 className="text-lg font-bold tracking-tight">auto-shop</h1>
-          <nav className="flex gap-1">
+    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+      <AppBar position="static">
+        <Toolbar>
+          <Typography variant="h6" sx={{ flexGrow: 0, mr: 4, fontWeight: 'bold' }}>
+            auto-shop
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 0.5, flexGrow: 1 }}>
             {navItems.map((item) => (
-              <NavLink
+              <Button
                 key={item.to}
+                component={NavLink}
                 to={item.to}
-                end={item.to === '/'}
-                className={({ isActive }) =>
-                  `px-3 py-1.5 rounded text-sm font-medium transition-colors ${
-                    isActive
-                      ? 'bg-white/20 text-white'
-                      : 'text-gray-300 hover:text-white hover:bg-white/10'
-                  }`
-                }
+                end={item.to === '/' ? true : undefined}
+                sx={{
+                  color: 'inherit',
+                  textTransform: 'none',
+                  '&.active': {
+                    backgroundColor: 'rgba(255,255,255,0.15)',
+                  },
+                }}
               >
                 {item.label}
-              </NavLink>
+              </Button>
             ))}
-          </nav>
-        </div>
-      </header>
-      <main className="flex-1 max-w-7xl mx-auto w-full px-4 py-6">
+          </Box>
+          <IconButton color="inherit" onClick={toggleMode} aria-label="Toggle dark mode">
+            {mode === 'light' ? <DarkModeIcon /> : <LightModeIcon />}
+          </IconButton>
+        </Toolbar>
+      </AppBar>
+      <Container maxWidth="lg" sx={{ flex: 1, py: 3 }}>
         <Outlet />
-      </main>
-    </div>
+      </Container>
+    </Box>
   );
 }

@@ -632,6 +632,122 @@ function launch(issueRef) {
   }
 }
 
+function schedulerStart() {
+  const scheduler = require('../lib/scheduler/index');
+  const running = scheduler.isRunning();
+  if (running) {
+    error(`Scheduler is already running (PID ${running}). Use 'auto-shop scheduler stop' first.`);
+  }
+  scheduler.start();
+}
+
+function schedulerStatus() {
+  const scheduler = require('../lib/scheduler/index');
+  const http = require('http');
+
+  const running = scheduler.isRunning();
+  if (running) {
+    // Query the running daemon's API
+    const req = http.get(`http://localhost:${scheduler.API_PORT}/api/scheduler/status`, (res) => {
+      let data = '';
+      res.on('data', chunk => { data += chunk; });
+      res.on('end', () => {
+        const state = JSON.parse(data);
+        log(`\nScheduler Status: ${state.status}${state.paused ? ' (PAUSED)' : ''}`, 'blue');
+        log(`  PID:          ${running}`);
+        log(`  Started:      ${state.startedAt}`);
+        log(`  Last scan:    ${state.lastScanAt || 'never'}`);
+        log(`  API:          http://localhost:${scheduler.API_PORT}`);
+        log('');
+
+        log(`Active Sessions (${state.activeCount}/${state.maxSessions}):`, 'blue');
+        if (state.activeSessions.length === 0) {
+          log('  (none)');
+        } else {
+          for (const s of state.activeSessions) {
+            log(`  ${s.issueRef}`, 'green');
+            log(`    ${s.title}`);
+            log(`    PID ${s.pid} | branch ${s.branch} | started ${s.startedAt}`);
+          }
+        }
+        log('');
+
+        log(`Queue (${state.queueSize}):`, 'blue');
+        if (state.queue.length === 0) {
+          log('  (empty)');
+        } else {
+          for (const q of state.queue) {
+            log(`  ${q.issueRef} — ${q.title}`);
+          }
+        }
+        log('');
+
+        if (state.completed.length > 0) {
+          log(`Recent Completions (last ${Math.min(state.completed.length, 10)}):`, 'blue');
+          for (const c of state.completed.slice(-10)) {
+            const exitLabel = c.exitCode === 0 ? 'OK' : `exit ${c.exitCode}`;
+            log(`  ${c.issueRef} — ${exitLabel} — ${c.completedAt}`);
+          }
+          log('');
+        }
+      });
+    });
+
+    req.on('error', () => {
+      warn(`Scheduler PID ${running} is running but API is not responding`);
+      const saved = scheduler.readSavedState();
+      if (saved) {
+        log(`\nLast saved state:`, 'blue');
+        log(JSON.stringify(saved, null, 2));
+      }
+    });
+  } else {
+    warn('Scheduler is not running');
+    const saved = scheduler.readSavedState();
+    if (saved) {
+      log(`\nLast saved state:`, 'blue');
+      log(`  Status:    ${saved.status}`);
+      log(`  Started:   ${saved.startedAt}`);
+      log(`  Last scan: ${saved.lastScanAt || 'never'}`);
+      log(`  Queue:     ${saved.queue ? saved.queue.length : 0} items`);
+      log(`  Completed: ${saved.completed ? saved.completed.length : 0} items`);
+    }
+    info('Start with: auto-shop scheduler start');
+  }
+}
+
+function schedulerStop() {
+  const scheduler = require('../lib/scheduler/index');
+  const http = require('http');
+
+  const running = scheduler.isRunning();
+  if (!running) {
+    warn('Scheduler is not running');
+    return;
+  }
+
+  info(`Sending stop to scheduler (PID ${running})...`);
+  const req = http.request(`http://localhost:${scheduler.API_PORT}/api/scheduler/stop`, { method: 'POST' }, (res) => {
+    let data = '';
+    res.on('data', chunk => { data += chunk; });
+    res.on('end', () => {
+      success('Scheduler stopping');
+    });
+  });
+
+  req.on('error', () => {
+    // API not responding, send SIGTERM directly
+    try {
+      process.kill(running, 'SIGTERM');
+      success(`Sent SIGTERM to PID ${running}`);
+    } catch {
+      error(`Failed to stop scheduler PID ${running}`);
+    }
+  });
+
+  req.end();
+}
+
 function showHelp() {
   log(`
 auto-shop — Coordinator CLI for AI development cells
@@ -694,6 +810,17 @@ COMMANDS:
                           - Resolves local path from projects.json
                           - Runs claude --remote from the correct directory
                           - Works from any directory
+
+  scheduler start         Start the scheduler daemon
+                          - Polls all repos for claude-ready issues every 5 min
+                          - Maintains up to 4 concurrent claude --remote sessions
+                          - Exposes API on port 3401 for GUI monitoring
+                          - Labels: claude-ready -> cell:active -> cell:awaiting-review
+
+  scheduler status        Show scheduler status
+                          - Queries the running daemon or reads saved state
+
+  scheduler stop          Stop the scheduler daemon gracefully
 
   help                    Show this help message
 
@@ -770,6 +897,18 @@ switch (command) {
 
   case 'launch':
     launch(arg1);
+    break;
+
+  case 'scheduler':
+    if (arg1 === 'start') {
+      schedulerStart();
+    } else if (arg1 === 'status') {
+      schedulerStatus();
+    } else if (arg1 === 'stop') {
+      schedulerStop();
+    } else {
+      error('Usage: auto-shop scheduler <start|status|stop>');
+    }
     break;
 
   case 'help':

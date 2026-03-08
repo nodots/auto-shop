@@ -2,6 +2,22 @@ import { useQuery } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
 import { fetchCells } from '../api';
 import StatusBadge from '../components/StatusBadge';
+import Box from '@mui/material/Box';
+import Typography from '@mui/material/Typography';
+import Button from '@mui/material/Button';
+import ToggleButton from '@mui/material/ToggleButton';
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
+import Table from '@mui/material/Table';
+import TableBody from '@mui/material/TableBody';
+import TableCell from '@mui/material/TableCell';
+import TableContainer from '@mui/material/TableContainer';
+import TableHead from '@mui/material/TableHead';
+import TableRow from '@mui/material/TableRow';
+import Paper from '@mui/material/Paper';
+import MuiLink from '@mui/material/Link';
+import CircularProgress from '@mui/material/CircularProgress';
+import Alert from '@mui/material/Alert';
+import Stack from '@mui/material/Stack';
 
 const statuses = ['all', 'queued', 'active', 'blocked', 'awaiting-review', 'merged'];
 
@@ -14,75 +30,73 @@ export default function CellsList() {
     queryFn: () => fetchCells(statusFilter === 'all' ? undefined : { status: statusFilter }),
   });
 
-  if (isLoading) return <p className="text-gray-500">Loading cells...</p>;
-  if (error) return <p className="text-red-600">Error: {(error as Error).message}</p>;
+  if (isLoading) return <CircularProgress />;
+  if (error) return <Alert severity="error">{(error as Error).message}</Alert>;
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">Cells</h2>
-        <Link
-          to="/cells/new"
-          className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700"
-        >
+    <Stack spacing={2}>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Typography variant="h5" fontWeight="bold">Cells</Typography>
+        <Button component={Link} to="/cells/new" variant="contained" size="small">
           New Cell
-        </Link>
-      </div>
+        </Button>
+      </Box>
 
-      {/* Filter tabs */}
-      <div className="flex gap-1 flex-wrap">
+      <ToggleButtonGroup
+        value={statusFilter}
+        exclusive
+        onChange={(_e, val) => {
+          if (val) setSearchParams(val === 'all' ? {} : { status: val });
+        }}
+        size="small"
+      >
         {statuses.map((s) => (
-          <button
-            key={s}
-            onClick={() => setSearchParams(s === 'all' ? {} : { status: s })}
-            className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
-              statusFilter === s
-                ? 'bg-gray-900 text-white'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-            }`}
-          >
+          <ToggleButton key={s} value={s} sx={{ textTransform: 'none' }}>
             {s}
-          </button>
+          </ToggleButton>
         ))}
-      </div>
+      </ToggleButtonGroup>
 
-      {/* Cells table */}
       {!cells || cells.length === 0 ? (
-        <p className="text-gray-400 py-8 text-center">No cells found</p>
+        <Typography color="text.disabled" align="center" sx={{ py: 4 }}>
+          No cells found
+        </Typography>
       ) : (
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-left">
-              <tr>
-                <th className="px-4 py-3 font-medium text-gray-500">Feature</th>
-                <th className="px-4 py-3 font-medium text-gray-500">Project</th>
-                <th className="px-4 py-3 font-medium text-gray-500">Branch</th>
-                <th className="px-4 py-3 font-medium text-gray-500">Status</th>
-                <th className="px-4 py-3 font-medium text-gray-500">Updated</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
+        <TableContainer component={Paper}>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Feature</TableCell>
+                <TableCell>Project</TableCell>
+                <TableCell>Branch</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell>Updated</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
               {cells.map((cell) => (
-                <tr key={cell.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-3">
-                    <Link to={`/cells/${cell.id}`} className="text-blue-600 hover:underline font-medium">
+                <TableRow key={cell.id} hover>
+                  <TableCell>
+                    <MuiLink component={Link} to={`/cells/${cell.id}`} underline="hover" fontWeight="medium">
                       {cell.feature}
-                    </Link>
-                  </td>
-                  <td className="px-4 py-3 text-gray-600">{cell.project}</td>
-                  <td className="px-4 py-3 font-mono text-xs text-gray-500">{cell.branch}</td>
-                  <td className="px-4 py-3">
+                    </MuiLink>
+                  </TableCell>
+                  <TableCell>{cell.project}</TableCell>
+                  <TableCell>
+                    <Typography variant="body2" fontFamily="monospace" fontSize="0.75rem">
+                      {cell.branch}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
                     <StatusBadge status={cell.status} />
-                  </td>
-                  <td className="px-4 py-3 text-gray-500">
-                    {new Date(cell.updated_at).toLocaleDateString()}
-                  </td>
-                </tr>
+                  </TableCell>
+                  <TableCell>{new Date(cell.updatedAt).toLocaleDateString()}</TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </TableBody>
+          </Table>
+        </TableContainer>
       )}
-    </div>
+    </Stack>
   );
 }

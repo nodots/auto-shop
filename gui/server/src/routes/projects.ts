@@ -1,7 +1,9 @@
 import { Router } from 'express';
 import fs from 'fs';
 import path from 'path';
-import pool from '../db.js';
+import { eq } from 'drizzle-orm';
+import { db } from '../db.js';
+import { projects, packages } from '../db/schema.js';
 
 const router = Router();
 
@@ -12,22 +14,29 @@ function loadProjectsJson() {
   return JSON.parse(fs.readFileSync(filePath, 'utf8')).projects;
 }
 
-// GET /api/projects — list all projects from DB
+// GET /api/projects — list all projects from DB with packages
 router.get('/', async (_req, res) => {
   try {
-    const { rows } = await pool.query(
-      `SELECT p.*, json_agg(
-        json_build_object(
-          'name', pk.name, 'repo', pk.repo, 'path', pk.path,
-          'featureTarget', pk.feature_target, 'scopeOverrides', pk.scope_overrides
-        )
-      ) FILTER (WHERE pk.id IS NOT NULL) AS packages
-      FROM projects p
-      LEFT JOIN packages pk ON pk.project_id = p.id
-      GROUP BY p.id
-      ORDER BY p.name`
-    );
-    res.json(rows);
+    const allProjects = await db.query.projects.findMany({
+      orderBy: (p, { asc }) => [asc(p.name)],
+    });
+
+    const allPackages = await db.query.packages.findMany();
+
+    const result = allProjects.map(p => ({
+      ...p,
+      packages: allPackages
+        .filter(pkg => pkg.projectId === p.id)
+        .map(pkg => ({
+          name: pkg.name,
+          repo: pkg.repo,
+          path: pkg.path,
+          featureTarget: pkg.featureTarget,
+          scopeOverrides: pkg.scopeOverrides,
+        })),
+    }));
+
+    res.json(result);
   } catch (err) {
     res.status(500).json({ error: String(err) });
   }
@@ -36,44 +45,55 @@ router.get('/', async (_req, res) => {
 // POST /api/projects/sync — sync projects.json to DB
 router.post('/sync', async (_req, res) => {
   try {
-    const projects = loadProjectsJson();
+    const projectsData = loadProjectsJson();
     let synced = 0;
 
-    for (const [name, proj] of Object.entries(projects) as [string, any][]) {
-      const result = await pool.query(
-        `INSERT INTO projects (name, repo, local_path, default_branch, feature_target, promotion_path, scope_template, synced_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
-         ON CONFLICT (name) DO UPDATE SET
-           repo = EXCLUDED.repo,
-           local_path = EXCLUDED.local_path,
-           default_branch = EXCLUDED.default_branch,
-           feature_target = EXCLUDED.feature_target,
-           promotion_path = EXCLUDED.promotion_path,
-           scope_template = EXCLUDED.scope_template,
-           synced_at = NOW()
-         RETURNING id`,
-        [name, proj.repo, proj.localPath, proj.defaultBranch, proj.featureTarget, proj.promotionPath, proj.scopeTemplate || null]
-      );
-
-      const projectId = result.rows[0].id;
+    for (const [name, proj] of Object.entries(projectsData) as [string, any][]) {
+      const [row] = await db
+        .insert(projects)
+        .values({
+          name,
+          repo: proj.repo,
+          localPath: proj.localPath,
+          defaultBranch: proj.defaultBranch,
+          featureTarget: proj.featureTarget,
+          promotionPath: proj.promotionPath,
+          scopeTemplate: proj.scopeTemplate || null,
+          syncedAt: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: projects.name,
+          set: {
+            repo: proj.repo,
+            localPath: proj.localPath,
+            defaultBranch: proj.defaultBranch,
+            featureTarget: proj.featureTarget,
+            promotionPath: proj.promotionPath,
+            scopeTemplate: proj.scopeTemplate || null,
+            syncedAt: new Date(),
+          },
+        })
+        .returning();
 
       if (proj.packages) {
-        // Remove old packages
-        await pool.query('DELETE FROM packages WHERE project_id = $1', [projectId]);
+        await db.delete(packages).where(eq(packages.projectId, row.id));
 
         for (const [pkgName, pkg] of Object.entries(proj.packages) as [string, any][]) {
-          await pool.query(
-            `INSERT INTO packages (project_id, name, repo, path, feature_target, scope_overrides)
-             VALUES ($1, $2, $3, $4, $5, $6)`,
-            [projectId, pkgName, pkg.repo, pkg.path, pkg.featureTarget || null, pkg.scopeOverrides || null]
-          );
+          await db.insert(packages).values({
+            projectId: row.id,
+            name: pkgName,
+            repo: pkg.repo,
+            path: pkg.path,
+            featureTarget: pkg.featureTarget || null,
+            scopeOverrides: pkg.scopeOverrides || null,
+          });
         }
       }
 
       synced++;
     }
 
-    res.json({ synced, total: Object.keys(projects).length });
+    res.json({ synced, total: Object.keys(projectsData).length });
   } catch (err) {
     res.status(500).json({ error: String(err) });
   }
@@ -82,8 +102,8 @@ router.post('/sync', async (_req, res) => {
 // GET /api/projects/raw — read projects.json directly (no DB needed)
 router.get('/raw', (_req, res) => {
   try {
-    const projects = loadProjectsJson();
-    res.json(projects);
+    const projectsData = loadProjectsJson();
+    res.json(projectsData);
   } catch (err) {
     res.status(500).json({ error: String(err) });
   }

@@ -1,5 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { fetchProjectsRaw, syncProjects, type ProjectData } from '../api';
+import Typography from '@mui/material/Typography';
+import Paper from '@mui/material/Paper';
+import Button from '@mui/material/Button';
+import Box from '@mui/material/Box';
+import Chip from '@mui/material/Chip';
+import CircularProgress from '@mui/material/CircularProgress';
+import Alert from '@mui/material/Alert';
+import Stack from '@mui/material/Stack';
 
 export default function Projects() {
   const queryClient = useQueryClient();
@@ -14,62 +22,85 @@ export default function Projects() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['projects'] }),
   });
 
-  if (isLoading) return <p className="text-gray-500">Loading projects...</p>;
-  if (error) return <p className="text-red-600">Error: {(error as Error).message}</p>;
+  if (isLoading) return <CircularProgress />;
+  if (error) return <Alert severity="error">{(error as Error).message}</Alert>;
   if (!projects) return null;
 
+  const fields = (proj: ProjectData) => [
+    ['Repository', proj.repo],
+    ['Default Branch', proj.defaultBranch],
+    ['Feature Target', proj.featureTarget],
+    ['Promotion Path', proj.promotionPath.join(' \u2192 ')],
+  ];
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">Projects</h2>
-        <button
+    <Stack spacing={3}>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Typography variant="h5" fontWeight="bold">Projects</Typography>
+        <Button
+          variant="contained"
+          size="small"
           onClick={() => syncMutation.mutate()}
           disabled={syncMutation.isPending}
-          className="bg-gray-900 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-800 disabled:opacity-50"
         >
           {syncMutation.isPending ? 'Syncing...' : 'Sync to DB'}
-        </button>
-      </div>
+        </Button>
+      </Box>
 
       {syncMutation.isSuccess && (
-        <div className="bg-green-50 border border-green-200 text-green-700 rounded p-3 text-sm">
+        <Alert severity="success">
           Synced {syncMutation.data?.synced} project(s) to database
-        </div>
+        </Alert>
       )}
 
-      <div className="grid gap-4">
+      <Stack spacing={2}>
         {Object.entries(projects).map(([name, proj]: [string, ProjectData]) => (
-          <div key={name} className="bg-white rounded-lg shadow p-4">
-            <h3 className="text-lg font-bold">{name}</h3>
-            <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
-              <div className="text-gray-500">Repository</div>
-              <div className="font-mono text-xs">{proj.repo}</div>
-              <div className="text-gray-500">Default Branch</div>
-              <div>{proj.defaultBranch}</div>
-              <div className="text-gray-500">Feature Target</div>
-              <div>{proj.featureTarget}</div>
-              <div className="text-gray-500">Promotion Path</div>
-              <div>{proj.promotionPath.join(' → ')}</div>
-            </div>
+          <Paper key={name} sx={{ p: 2 }}>
+            <Typography variant="h6" fontWeight="bold">{name}</Typography>
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: 'auto 1fr',
+                gap: 0.5,
+                columnGap: 2,
+                mt: 1,
+              }}
+            >
+              {fields(proj).map(([label, value]) => (
+                <>
+                  <Typography key={`${label}-label`} variant="body2" color="text.secondary">{label}</Typography>
+                  <Typography
+                    key={`${label}-value`}
+                    variant="body2"
+                    fontFamily={label === 'Repository' ? 'monospace' : undefined}
+                    fontSize={label === 'Repository' ? '0.75rem' : undefined}
+                  >
+                    {value}
+                  </Typography>
+                </>
+              ))}
+            </Box>
 
             {proj.packages && (
-              <div className="mt-4">
-                <h4 className="text-sm font-medium text-gray-500 mb-2">
+              <Box sx={{ mt: 2 }}>
+                <Typography variant="subtitle2" color="text.secondary" gutterBottom>
                   Packages ({Object.keys(proj.packages).length})
-                </h4>
-                <div className="grid gap-2">
+                </Typography>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
                   {Object.entries(proj.packages).map(([pkgName, pkg]) => (
-                    <div key={pkgName} className="bg-gray-50 rounded p-2 text-sm">
-                      <span className="font-medium">{pkgName}</span>
-                      <span className="text-gray-400 ml-2 font-mono text-xs">{pkg.repo}</span>
-                    </div>
+                    <Chip
+                      key={pkgName}
+                      label={`${pkgName} (${pkg.repo})`}
+                      size="small"
+                      variant="outlined"
+                    />
                   ))}
-                </div>
-              </div>
+                </Box>
+              </Box>
             )}
-          </div>
+          </Paper>
         ))}
-      </div>
-    </div>
+      </Stack>
+    </Stack>
   );
 }

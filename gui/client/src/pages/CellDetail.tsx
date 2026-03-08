@@ -4,6 +4,19 @@ import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { fetchCell, updateCellStatus, deleteCell } from '../api';
 import StatusBadge from '../components/StatusBadge';
+import Box from '@mui/material/Box';
+import Typography from '@mui/material/Typography';
+import Paper from '@mui/material/Paper';
+import Button from '@mui/material/Button';
+import TextField from '@mui/material/TextField';
+import Tabs from '@mui/material/Tabs';
+import Tab from '@mui/material/Tab';
+import List from '@mui/material/List';
+import ListItem from '@mui/material/ListItem';
+import MuiLink from '@mui/material/Link';
+import CircularProgress from '@mui/material/CircularProgress';
+import Alert from '@mui/material/Alert';
+import Stack from '@mui/material/Stack';
 
 const validStatuses = ['queued', 'active', 'blocked', 'awaiting-review', 'merged'];
 
@@ -11,7 +24,7 @@ export default function CellDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<'scope' | 'blocker' | 'handoff' | 'history'>('scope');
+  const [activeTab, setActiveTab] = useState(0);
   const [statusNote, setStatusNote] = useState('');
 
   const { data: cell, isLoading, error } = useQuery({
@@ -34,155 +47,157 @@ export default function CellDetail() {
     onSuccess: () => navigate('/cells'),
   });
 
-  if (isLoading) return <p className="text-gray-500">Loading cell...</p>;
-  if (error) return <p className="text-red-600">Error: {(error as Error).message}</p>;
+  if (isLoading) return <CircularProgress />;
+  if (error) return <Alert severity="error">{(error as Error).message}</Alert>;
   if (!cell) return null;
 
-  const tabs = [
-    { key: 'scope' as const, label: 'Scope' },
-    { key: 'blocker' as const, label: 'Blocker' },
-    { key: 'handoff' as const, label: 'Handoff' },
-    { key: 'history' as const, label: 'History' },
-  ];
+  const tabKeys = ['scope', 'blocker', 'handoff', 'history'] as const;
 
   return (
-    <div className="space-y-6">
+    <Stack spacing={3}>
       {/* Header */}
-      <div className="flex items-start justify-between">
-        <div>
-          <h2 className="text-2xl font-bold">{cell.feature}</h2>
-          <p className="text-gray-500">
-            {cell.project} &middot; <span className="font-mono text-xs">{cell.branch}</span>
-          </p>
-        </div>
+      <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+        <Box>
+          <Typography variant="h5" fontWeight="bold">{cell.feature}</Typography>
+          <Typography color="text.secondary">
+            {cell.project} &middot;{' '}
+            <Typography component="span" fontFamily="monospace" fontSize="0.75rem">
+              {cell.branch}
+            </Typography>
+          </Typography>
+        </Box>
         <StatusBadge status={cell.status} />
-      </div>
+      </Box>
 
       {/* Links */}
-      <div className="flex gap-3 text-sm">
-        {cell.github_issue_url && (
-          <a href={cell.github_issue_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+      <Box sx={{ display: 'flex', gap: 2 }}>
+        {cell.githubIssueUrl && (
+          <MuiLink href={cell.githubIssueUrl} target="_blank" rel="noopener noreferrer">
             GitHub Issue
-          </a>
+          </MuiLink>
         )}
-        {cell.github_pr_url && (
-          <a href={cell.github_pr_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+        {cell.githubPrUrl && (
+          <MuiLink href={cell.githubPrUrl} target="_blank" rel="noopener noreferrer">
             Pull Request
-          </a>
+          </MuiLink>
         )}
-      </div>
+      </Box>
 
       {/* Status transitions */}
-      <div className="bg-white rounded-lg shadow p-4">
-        <h3 className="text-sm font-medium text-gray-500 mb-2">Transition Status</h3>
-        <div className="flex flex-wrap gap-2 items-end">
+      <Paper sx={{ p: 2 }}>
+        <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+          Transition Status
+        </Typography>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'flex-end' }}>
           {validStatuses
             .filter((s) => s !== cell.status)
             .map((s) => (
-              <button
+              <Button
                 key={s}
+                variant="outlined"
+                size="small"
                 onClick={() => statusMutation.mutate({ status: s, note: statusNote || undefined })}
                 disabled={statusMutation.isPending}
-                className="px-3 py-1.5 border rounded text-sm hover:bg-gray-50 disabled:opacity-50"
               >
                 &rarr; {s}
-              </button>
+              </Button>
             ))}
-          <input
-            type="text"
+          <TextField
+            size="small"
             placeholder="Note (optional)"
             value={statusNote}
             onChange={(e) => setStatusNote(e.target.value)}
-            className="border rounded px-3 py-1.5 text-sm flex-1 min-w-[200px]"
+            sx={{ flex: 1, minWidth: 200 }}
           />
-        </div>
-      </div>
+        </Box>
+      </Paper>
 
       {/* Tabs */}
-      <div className="border-b flex gap-1">
-        {tabs.map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === tab.key
-                ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      <Box>
+        <Tabs value={activeTab} onChange={(_e, v) => setActiveTab(v)}>
+          <Tab label="Scope" />
+          <Tab label="Blocker" />
+          <Tab label="Handoff" />
+          <Tab label="History" />
+        </Tabs>
 
-      {/* Tab content */}
-      <div className="bg-white rounded-lg shadow p-4 min-h-[200px]">
-        {activeTab === 'scope' && (
-          cell.scope ? (
-            <pre className="text-sm bg-gray-50 p-4 rounded overflow-auto">
-              {JSON.stringify(cell.scope, null, 2)}
-            </pre>
-          ) : (
-            <p className="text-gray-400">No scope data</p>
-          )
-        )}
+        <Paper sx={{ p: 2, minHeight: 200, mt: 1 }}>
+          {tabKeys[activeTab] === 'scope' && (
+            cell.scope ? (
+              <Box
+                component="pre"
+                sx={{ fontSize: '0.875rem', bgcolor: 'grey.50', p: 2, borderRadius: 1, overflow: 'auto' }}
+              >
+                {JSON.stringify(cell.scope, null, 2)}
+              </Box>
+            ) : (
+              <Typography color="text.disabled">No scope data</Typography>
+            )
+          )}
 
-        {activeTab === 'blocker' && (
-          cell.blocker ? (
-            <div className="prose prose-sm max-w-none">
-              <ReactMarkdown>{cell.blocker}</ReactMarkdown>
-            </div>
-          ) : (
-            <p className="text-gray-400">No blocker</p>
-          )
-        )}
+          {tabKeys[activeTab] === 'blocker' && (
+            cell.blocker ? (
+              <Box sx={{ '& h1,& h2,& h3': { mt: 2, mb: 1 }, '& p': { my: 1 } }}>
+                <ReactMarkdown>{cell.blocker}</ReactMarkdown>
+              </Box>
+            ) : (
+              <Typography color="text.disabled">No blocker</Typography>
+            )
+          )}
 
-        {activeTab === 'handoff' && (
-          cell.handoff ? (
-            <div className="prose prose-sm max-w-none">
-              <ReactMarkdown>{cell.handoff}</ReactMarkdown>
-            </div>
-          ) : (
-            <p className="text-gray-400">No handoff</p>
-          )
-        )}
+          {tabKeys[activeTab] === 'handoff' && (
+            cell.handoff ? (
+              <Box sx={{ '& h1,& h2,& h3': { mt: 2, mb: 1 }, '& p': { my: 1 } }}>
+                <ReactMarkdown>{cell.handoff}</ReactMarkdown>
+              </Box>
+            ) : (
+              <Typography color="text.disabled">No handoff</Typography>
+            )
+          )}
 
-        {activeTab === 'history' && (
-          cell.history && cell.history.length > 0 ? (
-            <ul className="space-y-2 text-sm">
-              {cell.history.map((h) => (
-                <li key={h.id} className="flex items-center gap-2">
-                  <span className="text-gray-400 w-40 shrink-0">
-                    {new Date(h.changed_at).toLocaleString()}
-                  </span>
-                  {h.from_status && <StatusBadge status={h.from_status} />}
-                  <span className="text-gray-400">&rarr;</span>
-                  <StatusBadge status={h.to_status} />
-                  {h.note && <span className="text-gray-500">{h.note}</span>}
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-gray-400">No history</p>
-          )
-        )}
-      </div>
+          {tabKeys[activeTab] === 'history' && (
+            cell.history && cell.history.length > 0 ? (
+              <List dense disablePadding>
+                {cell.history.map((h) => (
+                  <ListItem key={h.id} disableGutters sx={{ gap: 1 }}>
+                    <Typography variant="caption" color="text.secondary" sx={{ width: 160, flexShrink: 0 }}>
+                      {new Date(h.changedAt).toLocaleString()}
+                    </Typography>
+                    {h.fromStatus && <StatusBadge status={h.fromStatus} />}
+                    <Typography color="text.disabled">&rarr;</Typography>
+                    <StatusBadge status={h.toStatus} />
+                    {h.note && (
+                      <Typography variant="body2" color="text.secondary">{h.note}</Typography>
+                    )}
+                  </ListItem>
+                ))}
+              </List>
+            ) : (
+              <Typography color="text.disabled">No history</Typography>
+            )
+          )}
+        </Paper>
+      </Box>
 
       {/* Danger zone */}
-      <div className="border border-red-200 rounded-lg p-4">
-        <h3 className="text-sm font-medium text-red-600 mb-2">Danger Zone</h3>
-        <button
+      <Paper variant="outlined" sx={{ p: 2, borderColor: 'error.light' }}>
+        <Typography variant="subtitle2" color="error" gutterBottom>
+          Danger Zone
+        </Typography>
+        <Button
+          variant="contained"
+          color="error"
+          size="small"
           onClick={() => {
             if (confirm('Delete this cell? This cannot be undone.')) {
               deleteMutation.mutate();
             }
           }}
           disabled={deleteMutation.isPending}
-          className="px-3 py-1.5 bg-red-600 text-white rounded text-sm hover:bg-red-700 disabled:opacity-50"
         >
           Delete Cell
-        </button>
-      </div>
-    </div>
+        </Button>
+      </Paper>
+    </Stack>
   );
 }

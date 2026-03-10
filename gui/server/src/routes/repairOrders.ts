@@ -15,11 +15,11 @@ interface ProjectsConfig {
 }
 
 interface CachedIssues {
-  data: GitHubIssue[];
+  data: RepairOrder[];
   fetchedAt: number;
 }
 
-interface GitHubIssue {
+interface RepairOrder {
   id: number;
   number: number;
   title: string;
@@ -54,7 +54,7 @@ function loadRepoMap(): Map<string, string> {
   return repoMap;
 }
 
-// GET /api/issues
+// GET /api/repair-orders
 router.get('/', async (req, res) => {
   const token = process.env.GITHUB_TOKEN;
   if (!token) {
@@ -62,7 +62,7 @@ router.get('/', async (req, res) => {
     return;
   }
 
-  const projectFilter = req.query.project as string | undefined;
+  const projectFilter = (req.query.account || req.query.project) as string | undefined;
   const forceRefresh = req.query.refresh === 'true';
 
   try {
@@ -91,7 +91,7 @@ router.get('/', async (req, res) => {
           per_page: 100,
         });
 
-        const issues: GitHubIssue[] = response.data
+        const issues: RepairOrder[] = response.data
           .filter((issue) => !issue.pull_request)
           .map((issue) => ({
             id: issue.id,
@@ -117,7 +117,7 @@ router.get('/', async (req, res) => {
     );
 
     // Collect all successful results
-    const allIssues: GitHubIssue[] = [];
+    const allIssues: RepairOrder[] = [];
     for (const result of results) {
       if (result.status === 'fulfilled') {
         allIssues.push(...result.value);

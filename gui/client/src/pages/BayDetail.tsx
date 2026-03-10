@@ -2,8 +2,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { fetchCell, updateCellStatus, deleteCell } from '../api';
-import StatusBadge from '../components/StatusBadge';
+import { fetchBay, updateBayStatus, clearBay } from '../serviceDeskApi';
+import BayStatusBadge from '../components/BayStatusBadge';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Paper from '@mui/material/Paper';
@@ -20,36 +20,36 @@ import Stack from '@mui/material/Stack';
 
 const validStatuses = ['queued', 'active', 'blocked', 'awaiting-review', 'merged'];
 
-export default function CellDetail() {
+export default function BayDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState(0);
   const [statusNote, setStatusNote] = useState('');
 
-  const { data: cell, isLoading, error } = useQuery({
-    queryKey: ['cell', id],
-    queryFn: () => fetchCell(Number(id)),
+  const { data: bay, isLoading, error } = useQuery({
+    queryKey: ['bay', id],
+    queryFn: () => fetchBay(Number(id)),
   });
 
   const statusMutation = useMutation({
     mutationFn: ({ status, note }: { status: string; note?: string }) =>
-      updateCellStatus(Number(id), status, note),
+      updateBayStatus(Number(id), status, note),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['cell', id] });
-      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['bay', id] });
+      queryClient.invalidateQueries({ queryKey: ['shop-floor'] });
       setStatusNote('');
     },
   });
 
   const deleteMutation = useMutation({
-    mutationFn: () => deleteCell(Number(id)),
-    onSuccess: () => navigate('/cells'),
+    mutationFn: () => clearBay(Number(id)),
+    onSuccess: () => navigate('/bays'),
   });
 
   if (isLoading) return <CircularProgress />;
   if (error) return <Alert severity="error">{(error as Error).message}</Alert>;
-  if (!cell) return null;
+  if (!bay) return null;
 
   const tabKeys = ['scope', 'blocker', 'handoff', 'history'] as const;
 
@@ -58,27 +58,27 @@ export default function CellDetail() {
       {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
         <Box>
-          <Typography variant="h5" fontWeight="bold">{cell.feature}</Typography>
+          <Typography variant="h5" fontWeight="bold">{bay.feature}</Typography>
           <Typography color="text.secondary">
-            {cell.project} &middot;{' '}
+            {bay.project} &middot;{' '}
             <Typography component="span" fontFamily="monospace" fontSize="0.75rem">
-              {cell.branch}
+              {bay.branch}
             </Typography>
           </Typography>
         </Box>
-        <StatusBadge status={cell.status} />
+        <BayStatusBadge status={bay.status} />
       </Box>
 
       {/* Links */}
       <Box sx={{ display: 'flex', gap: 2 }}>
-        {cell.githubIssueUrl && (
-          <MuiLink href={cell.githubIssueUrl} target="_blank" rel="noopener noreferrer">
-            GitHub Issue
+        {bay.githubIssueUrl && (
+          <MuiLink href={bay.githubIssueUrl} target="_blank" rel="noopener noreferrer">
+            Repair Order
           </MuiLink>
         )}
-        {cell.githubPrUrl && (
-          <MuiLink href={cell.githubPrUrl} target="_blank" rel="noopener noreferrer">
-            Pull Request
+        {bay.githubPrUrl && (
+          <MuiLink href={bay.githubPrUrl} target="_blank" rel="noopener noreferrer">
+            Release PR
           </MuiLink>
         )}
       </Box>
@@ -86,11 +86,11 @@ export default function CellDetail() {
       {/* Status transitions */}
       <Paper sx={{ p: 2 }}>
         <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-          Transition Status
+          Move Bay Status
         </Typography>
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'flex-end' }}>
           {validStatuses
-            .filter((s) => s !== cell.status)
+            .filter((s) => s !== bay.status)
             .map((s) => (
               <Button
                 key={s}
@@ -104,7 +104,7 @@ export default function CellDetail() {
             ))}
           <TextField
             size="small"
-            placeholder="Note (optional)"
+            placeholder="Service note (optional)"
             value={statusNote}
             onChange={(e) => setStatusNote(e.target.value)}
             sx={{ flex: 1, minWidth: 200 }}
@@ -115,57 +115,57 @@ export default function CellDetail() {
       {/* Tabs */}
       <Box>
         <Tabs value={activeTab} onChange={(_e, v) => setActiveTab(v)}>
-          <Tab label="Scope" />
-          <Tab label="Blocker" />
-          <Tab label="Handoff" />
-          <Tab label="History" />
+          <Tab label="Repair Plan" />
+          <Tab label="Parts Delay" />
+          <Tab label="Shift Notes" />
+          <Tab label="Service Log" />
         </Tabs>
 
         <Paper sx={{ p: 2, minHeight: 200, mt: 1 }}>
           {tabKeys[activeTab] === 'scope' && (
-            cell.scope ? (
+            bay.scope ? (
               <Box
                 component="pre"
                 sx={{ fontSize: '0.875rem', bgcolor: 'grey.50', p: 2, borderRadius: 1, overflow: 'auto' }}
               >
-                {JSON.stringify(cell.scope, null, 2)}
+                {JSON.stringify(bay.scope, null, 2)}
               </Box>
             ) : (
-              <Typography color="text.disabled">No scope data</Typography>
+              <Typography color="text.disabled">No repair plan</Typography>
             )
           )}
 
           {tabKeys[activeTab] === 'blocker' && (
-            cell.blocker ? (
+            bay.blocker ? (
               <Box sx={{ '& h1,& h2,& h3': { mt: 2, mb: 1 }, '& p': { my: 1 } }}>
-                <ReactMarkdown>{cell.blocker}</ReactMarkdown>
+                <ReactMarkdown>{bay.blocker}</ReactMarkdown>
               </Box>
             ) : (
-              <Typography color="text.disabled">No blocker</Typography>
+              <Typography color="text.disabled">No parts delay</Typography>
             )
           )}
 
           {tabKeys[activeTab] === 'handoff' && (
-            cell.handoff ? (
+            bay.handoff ? (
               <Box sx={{ '& h1,& h2,& h3': { mt: 2, mb: 1 }, '& p': { my: 1 } }}>
-                <ReactMarkdown>{cell.handoff}</ReactMarkdown>
+                <ReactMarkdown>{bay.handoff}</ReactMarkdown>
               </Box>
             ) : (
-              <Typography color="text.disabled">No handoff</Typography>
+              <Typography color="text.disabled">No shift notes</Typography>
             )
           )}
 
           {tabKeys[activeTab] === 'history' && (
-            cell.history && cell.history.length > 0 ? (
+            bay.history && bay.history.length > 0 ? (
               <List dense disablePadding>
-                {cell.history.map((h) => (
+                {bay.history.map((h) => (
                   <ListItem key={h.id} disableGutters sx={{ gap: 1 }}>
                     <Typography variant="caption" color="text.secondary" sx={{ width: 160, flexShrink: 0 }}>
                       {new Date(h.changedAt).toLocaleString()}
                     </Typography>
-                    {h.fromStatus && <StatusBadge status={h.fromStatus} />}
+                    {h.fromStatus && <BayStatusBadge status={h.fromStatus} />}
                     <Typography color="text.disabled">&rarr;</Typography>
-                    <StatusBadge status={h.toStatus} />
+                    <BayStatusBadge status={h.toStatus} />
                     {h.note && (
                       <Typography variant="body2" color="text.secondary">{h.note}</Typography>
                     )}
@@ -173,7 +173,7 @@ export default function CellDetail() {
                 ))}
               </List>
             ) : (
-              <Typography color="text.disabled">No history</Typography>
+              <Typography color="text.disabled">No service log</Typography>
             )
           )}
         </Paper>
@@ -182,20 +182,20 @@ export default function CellDetail() {
       {/* Danger zone */}
       <Paper variant="outlined" sx={{ p: 2, borderColor: 'error.light' }}>
         <Typography variant="subtitle2" color="error" gutterBottom>
-          Danger Zone
+          Tow Yard
         </Typography>
         <Button
           variant="contained"
           color="error"
           size="small"
           onClick={() => {
-            if (confirm('Delete this cell? This cannot be undone.')) {
+            if (confirm('Clear this bay? This cannot be undone.')) {
               deleteMutation.mutate();
             }
           }}
           disabled={deleteMutation.isPending}
         >
-          Delete Cell
+          Clear Bay
         </Button>
       </Paper>
     </Stack>

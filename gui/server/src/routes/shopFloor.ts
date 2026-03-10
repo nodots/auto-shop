@@ -5,7 +5,7 @@ import { cells, cellStatusHistory } from '../db/schema.js';
 
 const router = Router();
 
-// GET /api/dashboard — aggregate dashboard data
+// GET /api/shop-floor — aggregate shop floor data
 router.get('/', async (_req, res) => {
   try {
     const statusCounts = await db

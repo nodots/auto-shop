@@ -1,8 +1,8 @@
 import { useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { fetchDashboard, fetchOpenIssues, fetchProjectsRaw } from '../api';
-import type { GitHubIssue, ProjectData } from '../api';
+import { fetchShopFloor, fetchRepairOrders, fetchAccountsRaw } from '../serviceDeskApi';
+import type { RepairOrder, AccountData } from '../serviceDeskApi';
 import Box from '@mui/material/Box';
 import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
@@ -31,10 +31,10 @@ import WarningAmberRoundedIcon from '@mui/icons-material/WarningAmberRounded';
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
 import { alpha, useTheme } from '@mui/material/styles';
 
-type ProjectSummary = {
+type AccountSummary = {
   name: string;
-  project: ProjectData;
-  issues: GitHubIssue[];
+  project: AccountData;
+  issues: RepairOrder[];
   queuedIssues: number;
   openIssues: number;
   oldestIssueAge: string;
@@ -49,7 +49,7 @@ function formatAge(dateStr: string): string {
   return `${days} days`;
 }
 
-function describeOldestIssue(issues: GitHubIssue[]) {
+function describeOldestIssue(issues: RepairOrder[]) {
   if (issues.length === 0) return 'No open issues';
   const oldest = [...issues].sort(
     (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
@@ -61,7 +61,7 @@ function buildAuditCommand(projectName: string) {
   return `./bin/auto-shop audit ${projectName} --state=open --limit=50`;
 }
 
-function matchesSearch(issue: GitHubIssue, search: string) {
+function matchesSearch(issue: RepairOrder, search: string) {
   if (!search) return true;
   const value = search.toLowerCase();
   return (
@@ -75,47 +75,48 @@ async function copyText(value: string) {
   await navigator.clipboard.writeText(value);
 }
 
-export default function Dashboard() {
+export default function ShopFloor() {
   const theme = useTheme();
+  const isDark = theme.palette.mode === 'dark';
   const [selectedProject, setSelectedProject] = useState('');
   const [search, setSearch] = useState('');
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
-  const dashboardQuery = useQuery({
-    queryKey: ['dashboard'],
-    queryFn: fetchDashboard,
+  const shopFloorQuery = useQuery({
+    queryKey: ['shop-floor'],
+    queryFn: fetchShopFloor,
   });
 
-  const projectsQuery = useQuery({
-    queryKey: ['projects-raw'],
-    queryFn: fetchProjectsRaw,
+  const accountsQuery = useQuery({
+    queryKey: ['accounts-raw'],
+    queryFn: fetchAccountsRaw,
   });
 
-  const issuesQuery = useQuery({
-    queryKey: ['open-issues'],
-    queryFn: () => fetchOpenIssues(),
+  const repairOrdersQuery = useQuery({
+    queryKey: ['repair-orders'],
+    queryFn: () => fetchRepairOrders(),
     staleTime: 300_000,
   });
 
-  if (dashboardQuery.isLoading || projectsQuery.isLoading) {
+  if (shopFloorQuery.isLoading || accountsQuery.isLoading) {
     return <CircularProgress />;
   }
 
-  if (dashboardQuery.error) {
-    return <Alert severity="error">{(dashboardQuery.error as Error).message}</Alert>;
+  if (shopFloorQuery.error) {
+    return <Alert severity="error">{(shopFloorQuery.error as Error).message}</Alert>;
   }
 
-  if (projectsQuery.error) {
-    return <Alert severity="error">{(projectsQuery.error as Error).message}</Alert>;
+  if (accountsQuery.error) {
+    return <Alert severity="error">{(accountsQuery.error as Error).message}</Alert>;
   }
 
-  if (!dashboardQuery.data || !projectsQuery.data) {
+  if (!shopFloorQuery.data || !accountsQuery.data) {
     return null;
   }
 
-  const projects = Object.entries(projectsQuery.data)
+  const projects = Object.entries(accountsQuery.data)
     .map(([name, project]) => {
-      const issues = (issuesQuery.data || []).filter((issue) => issue.project === name);
+      const issues = (repairOrdersQuery.data || []).filter((issue) => issue.project === name);
       return {
         name,
         project,
@@ -124,18 +125,18 @@ export default function Dashboard() {
         openIssues: issues.length,
         oldestIssueAge: describeOldestIssue(issues),
         auditCommand: buildAuditCommand(name),
-      } satisfies ProjectSummary;
+      } satisfies AccountSummary;
     })
     .sort((a, b) => b.openIssues - a.openIssues || a.name.localeCompare(b.name));
 
-  const visibleIssues = (issuesQuery.data || []).filter((issue) => {
+  const visibleIssues = (repairOrdersQuery.data || []).filter((issue) => {
     if (selectedProject && issue.project !== selectedProject) return false;
     return matchesSearch(issue, search);
   });
 
-  const totalQueuedIssues = (issuesQuery.data || []).filter((issue) => !issue.inCell).length;
+  const totalQueuedIssues = (repairOrdersQuery.data || []).filter((issue) => !issue.inCell).length;
   const isIssueAuthMissing =
-    issuesQuery.error && (issuesQuery.error as Error).message.includes('GITHUB_TOKEN');
+    repairOrdersQuery.error && (repairOrdersQuery.error as Error).message.includes('GITHUB_TOKEN');
 
   const handleCopy = async (command: string, key: string) => {
     try {
@@ -155,11 +156,14 @@ export default function Dashboard() {
         sx={{
           position: 'relative',
           overflow: 'hidden',
-          p: { xs: 2.5, md: 4 },
-          borderRadius: 4,
-          color: '#f8fafc',
-          background:
-            'linear-gradient(135deg, rgba(15,23,42,0.96) 0%, rgba(14,116,144,0.88) 52%, rgba(249,115,22,0.86) 100%)',
+          p: { xs: 3.5, sm: 4, md: 5 },
+          borderRadius: 6,
+          color: '#fff7ec',
+          border: `3px solid ${theme.palette.primary.main}`,
+          background: isDark
+            ? 'linear-gradient(135deg, #150909 0%, #2a0f0f 36%, #0f0f0f 100%)'
+            : 'linear-gradient(135deg, #221111 0%, #4d1717 34%, #141414 100%)',
+          boxShadow: '0 20px 70px rgba(0,0,0,0.35)',
         }}
       >
         <Box
@@ -167,20 +171,48 @@ export default function Dashboard() {
             position: 'absolute',
             inset: 0,
             background:
-              'radial-gradient(circle at top right, rgba(255,255,255,0.24), transparent 28%), radial-gradient(circle at bottom left, rgba(255,255,255,0.14), transparent 32%)',
+              'radial-gradient(circle at top right, rgba(255,247,236,0.22), transparent 26%), linear-gradient(90deg, rgba(214,40,40,0.16), transparent 44%)',
             pointerEvents: 'none',
           }}
         />
+        <Box
+          sx={{
+            position: 'absolute',
+            right: { xs: -18, md: 28 },
+            top: { xs: -12, md: 24 },
+            width: { xs: 120, md: 180 },
+            height: { xs: 120, md: 180 },
+            borderRadius: '50%',
+            border: '10px solid rgba(255,250,242,0.92)',
+            boxShadow: 'inset 0 0 0 10px #111111, inset 0 0 0 22px #d62828',
+            opacity: 0.9,
+          }}
+        />
+        <Box
+          sx={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            bottom: 0,
+            height: 18,
+            background:
+              'linear-gradient(45deg, #fffaf2 25%, #111111 25%, #111111 50%, #fffaf2 50%, #fffaf2 75%, #111111 75%, #111111)',
+            backgroundSize: '24px 24px',
+          }}
+        />
 
-        <Stack spacing={2.5} sx={{ position: 'relative' }}>
+        <Stack spacing={3} sx={{ position: 'relative', pr: { xs: 0, md: 16 } }}>
           <Chip
             icon={<AutoAwesomeRoundedIcon />}
-            label="Command Center"
+            label="Service Desk"
             sx={{
               alignSelf: 'flex-start',
               color: 'inherit',
-              borderColor: 'rgba(255,255,255,0.35)',
-              backgroundColor: 'rgba(255,255,255,0.12)',
+              borderColor: 'rgba(255,250,242,0.42)',
+              backgroundColor: 'rgba(255,250,242,0.12)',
+              fontFamily: '"Bebas Neue", sans-serif',
+              fontSize: '1rem',
+              letterSpacing: '0.08em',
             }}
             variant="outlined"
           />
@@ -190,17 +222,25 @@ export default function Dashboard() {
               variant="h3"
               sx={{
                 fontWeight: 800,
-                lineHeight: 1,
-                letterSpacing: '-0.04em',
-                fontSize: { xs: '2.2rem', md: '3.4rem' },
+                lineHeight: 0.95,
+                textTransform: 'uppercase',
+                textShadow: '0 4px 18px rgba(0,0,0,0.35)',
+                fontSize: { xs: '2.6rem', md: '4.8rem' },
               }}
             >
-              Audit the backlog, then launch the next clean cell.
+              Audit the waiting lot, then pull the next clean job into a bay.
             </Typography>
-            <Typography sx={{ mt: 1.5, maxWidth: 620, color: 'rgba(248,250,252,0.8)' }}>
-              The new CLI workflow is now the front door. Pick a project, copy the audit
-              command, review what should close or shrink, and spin up only the work that
-              still matters.
+            <Typography
+              sx={{
+                mt: 1.5,
+                maxWidth: 620,
+                color: 'rgba(255,247,236,0.86)',
+                fontSize: { xs: '0.95rem', md: '1.05rem' },
+              }}
+            >
+              The new CLI workflow is now the front desk. Pick an account, copy the audit
+              command, review what should be closed out or re-estimated, and pull only the
+              real remaining work into service.
             </Typography>
           </Box>
 
@@ -214,26 +254,28 @@ export default function Dashboard() {
               }
               sx={{
                 alignSelf: 'flex-start',
-                backgroundColor: '#f8fafc',
-                color: '#0f172a',
-                '&:hover': { backgroundColor: '#e2e8f0' },
+                backgroundColor: '#fffaf2',
+                color: '#111111',
+                border: '2px solid #111111',
+                '&:hover': { backgroundColor: '#f4dfc9' },
               }}
             >
-              {copiedKey === 'hero' ? 'Copied audit command' : 'Copy sample audit command'}
+              {copiedKey === 'hero' ? 'Copied shop audit' : 'Copy sample shop audit'}
             </Button>
             <Button
               component={Link}
-              to="/cells/new"
+              to="/bays/new"
               size="large"
               variant="outlined"
               startIcon={<LaunchRoundedIcon />}
               sx={{
                 alignSelf: 'flex-start',
-                color: '#f8fafc',
-                borderColor: 'rgba(248,250,252,0.35)',
+                color: '#fffaf2',
+                borderColor: 'rgba(255,250,242,0.5)',
+                backgroundColor: 'rgba(255,250,242,0.08)',
               }}
             >
-              Launch a new cell
+              Open a new bay
             </Button>
           </Stack>
         </Stack>
@@ -243,38 +285,38 @@ export default function Dashboard() {
         sx={{
           display: 'grid',
           gridTemplateColumns: { xs: '1fr', md: 'repeat(4, minmax(0, 1fr))' },
-          gap: 1.5,
+          gap: 2,
         }}
       >
         <MetricCard
-          label="Active Cells"
-          value={`${dashboardQuery.data.capacity.active}/${dashboardQuery.data.capacity.max}`}
-          detail="Current concurrency"
+          label="Occupied Bays"
+          value={`${shopFloorQuery.data.capacity.active}/${shopFloorQuery.data.capacity.max}`}
+          detail="Current service load"
           icon={<Inventory2OutlinedIcon />}
         />
         <MetricCard
-          label="Blocked"
-          value={String(dashboardQuery.data.blockedCells.length)}
-          detail="Needs coordinator action"
+          label="Parts Delays"
+          value={String(shopFloorQuery.data.blockedCells.length)}
+          detail="Needs service manager attention"
           icon={<WarningAmberRoundedIcon />}
         />
         <MetricCard
-          label="Ready PRs"
-          value={String(dashboardQuery.data.readyPRs.length)}
-          detail="Merge or review next"
+          label="Ready for Inspection"
+          value={String(shopFloorQuery.data.readyPRs.length)}
+          detail="Release or review next"
           icon={<AssignmentTurnedInRoundedIcon />}
         />
         <MetricCard
-          label="Backlog Ready"
+          label="Jobs Ready"
           value={String(totalQueuedIssues)}
-          detail="Open issues not already in a cell"
+          detail="Open repair orders not already in a bay"
           icon={<AutoAwesomeRoundedIcon />}
         />
       </Box>
 
       {isIssueAuthMissing && (
         <Alert severity="info">
-          Set `GITHUB_TOKEN` for the GUI server to load live issues and power the audit cards.
+          Set `GITHUB_TOKEN` for the GUI server to load live repair orders and power the audit cards.
         </Alert>
       )}
 
@@ -286,7 +328,15 @@ export default function Dashboard() {
           alignItems: 'start',
         }}
       >
-        <Paper sx={{ p: 2.5, borderRadius: 4 }}>
+        <Paper
+          sx={{
+            p: 2.5,
+            borderRadius: 5,
+            background: isDark
+              ? 'linear-gradient(180deg, rgba(28,16,16,0.98), rgba(18,10,10,0.96))'
+              : 'linear-gradient(180deg, rgba(255,250,242,0.98), rgba(247,235,217,0.98))',
+          }}
+        >
           <Stack
             direction={{ xs: 'column', md: 'row' }}
             spacing={1.5}
@@ -294,13 +344,13 @@ export default function Dashboard() {
           >
             <Box sx={{ flexGrow: 1 }}>
               <Typography variant="h5" fontWeight={800}>
-                Audit Queue
+                Bay Board
               </Typography>
               <Typography color="text.secondary">
-                Project cards pair live issue counts with the new CLI command.
+                Account cards pair live repair-order counts with the new CLI command.
               </Typography>
             </Box>
-            <IconButton onClick={() => issuesQuery.refetch()} disabled={issuesQuery.isFetching}>
+            <IconButton onClick={() => repairOrdersQuery.refetch()} disabled={repairOrdersQuery.isFetching}>
               <RefreshRoundedIcon />
             </IconButton>
           </Stack>
@@ -348,7 +398,7 @@ export default function Dashboard() {
                   </Box>
 
                   <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
-                    <Chip size="small" label={`${summary.queuedIssues} ready to audit`} variant="outlined" />
+                    <Chip size="small" label={`${summary.queuedIssues} ready for estimate`} variant="outlined" />
                     <Chip size="small" label={summary.oldestIssueAge} variant="outlined" />
                   </Stack>
 
@@ -356,7 +406,8 @@ export default function Dashboard() {
                     sx={{
                       p: 1.25,
                       borderRadius: 2,
-                      bgcolor: 'action.hover',
+                      bgcolor: isDark ? 'rgba(255,250,242,0.06)' : 'rgba(17,17,17,0.05)',
+                      border: `1px dashed ${alpha(theme.palette.primary.main, 0.45)}`,
                       fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
                       fontSize: '0.78rem',
                       overflowX: 'auto',
@@ -371,7 +422,7 @@ export default function Dashboard() {
                       startIcon={<ContentCopyRoundedIcon />}
                       onClick={() => handleCopy(summary.auditCommand, summary.name)}
                     >
-                      {copiedKey === summary.name ? 'Copied' : 'Copy Audit Command'}
+                      {copiedKey === summary.name ? 'Copied' : 'Copy Shop Audit'}
                     </Button>
                     <Button
                       variant="outlined"
@@ -381,7 +432,7 @@ export default function Dashboard() {
                         )
                       }
                     >
-                      {selectedProject === summary.name ? 'Show All Issues' : 'Focus Issues'}
+                      {selectedProject === summary.name ? 'Show All Repair Orders' : 'Focus This Account'}
                     </Button>
                   </Stack>
                 </Stack>
@@ -390,18 +441,26 @@ export default function Dashboard() {
           </Box>
         </Paper>
 
-        <Paper sx={{ p: 2.5, borderRadius: 4 }}>
+        <Paper
+          sx={{
+            p: 2.5,
+            borderRadius: 5,
+            background: isDark
+              ? 'linear-gradient(180deg, rgba(17,17,17,0.98), rgba(28,16,16,0.94))'
+              : 'linear-gradient(180deg, rgba(255,250,242,0.98), rgba(242,230,213,0.98))',
+          }}
+        >
           <Typography variant="h5" fontWeight={800}>
-            Coordinator Flow
+            Service Lane
           </Typography>
           <Typography color="text.secondary" sx={{ mt: 0.5 }}>
-            Keep it tight: audit, trim, launch.
+            Keep it tight: inspect, estimate, dispatch.
           </Typography>
           <Stack spacing={1.75} sx={{ mt: 2.5 }}>
             {[
-              'Copy an audit command from a project card.',
-              'Review close, modify, and leave-open recommendations.',
-              'Convert only the real remaining work into cells.',
+              'Copy an audit command from an account card.',
+              'Review close-out, re-estimate, and keep-open recommendations.',
+              'Pull only the real remaining jobs into bays.',
             ].map((step, index) => (
               <Box key={step} sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-start' }}>
                 <Chip label={`0${index + 1}`} color="primary" size="small" />
@@ -419,17 +478,26 @@ export default function Dashboard() {
             sx={{
               p: 1.25,
               borderRadius: 2,
-              bgcolor: 'action.hover',
+              bgcolor: isDark ? 'rgba(255,250,242,0.06)' : 'rgba(17,17,17,0.05)',
+              border: `1px dashed ${alpha(theme.palette.primary.main, 0.45)}`,
               fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
               fontSize: '0.78rem',
             }}
           >
-            ./bin/auto-shop issues prompt a2z-freight-claims --state=open --limit=25
+            ./bin/auto-shop backlog writeup a2z-freight-claims --state=open --limit=25
           </Box>
         </Paper>
       </Box>
 
-      <Paper sx={{ p: 2.5, borderRadius: 4 }}>
+      <Paper
+        sx={{
+          p: 2.5,
+          borderRadius: 5,
+          background: isDark
+            ? 'linear-gradient(180deg, rgba(22,12,12,0.98), rgba(14,10,10,0.96))'
+            : 'linear-gradient(180deg, rgba(255,250,242,0.98), rgba(249,239,224,0.98))',
+        }}
+      >
         <Stack
           direction={{ xs: 'column', md: 'row' }}
           spacing={1.5}
@@ -437,10 +505,10 @@ export default function Dashboard() {
         >
           <Box sx={{ flexGrow: 1 }}>
             <Typography variant="h5" fontWeight={800}>
-              Issue Radar
+              Waiting Lot
             </Typography>
             <Typography color="text.secondary">
-              Live backlog view with the current project filter baked in.
+              Live repair-order view with the current account filter baked in.
             </Typography>
           </Box>
           <TextField
@@ -457,7 +525,7 @@ export default function Dashboard() {
             onChange={(event) => setSelectedProject(event.target.value)}
             sx={{ width: { xs: '100%', md: 220 } }}
           >
-            <MenuItem value="">All projects</MenuItem>
+            <MenuItem value="">All accounts</MenuItem>
             {projects.map((summary) => (
               <MenuItem key={summary.name} value={summary.name}>
                 {summary.name}
@@ -466,10 +534,10 @@ export default function Dashboard() {
           </TextField>
         </Stack>
 
-        {issuesQuery.isLoading && <CircularProgress size={24} />}
+        {repairOrdersQuery.isLoading && <CircularProgress size={24} />}
 
-        {!issuesQuery.isLoading && !isIssueAuthMissing && visibleIssues.length === 0 && (
-          <Typography color="text.secondary">No matching issues.</Typography>
+        {!repairOrdersQuery.isLoading && !isIssueAuthMissing && visibleIssues.length === 0 && (
+          <Typography color="text.secondary">No matching repair orders.</Typography>
         )}
 
         {visibleIssues.length > 0 && (
@@ -477,12 +545,12 @@ export default function Dashboard() {
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell>Issue</TableCell>
-                  <TableCell>Project</TableCell>
+                  <TableCell>Repair Order</TableCell>
+                  <TableCell>Account</TableCell>
                   <TableCell>Labels</TableCell>
                   <TableCell>Age</TableCell>
                   <TableCell align="right">Comments</TableCell>
-                  <TableCell align="right">Action</TableCell>
+                  <TableCell align="right">Service Action</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -524,9 +592,9 @@ export default function Dashboard() {
                             size="small"
                             variant="contained"
                             component={Link}
-                            to={`/cells/new?feature=${encodeURIComponent(issue.title)}&project=${encodeURIComponent(issue.project)}&issueUrl=${encodeURIComponent(issue.html_url)}`}
+                            to={`/bays/new?feature=${encodeURIComponent(issue.title)}&project=${encodeURIComponent(issue.project)}&issueUrl=${encodeURIComponent(issue.html_url)}`}
                           >
-                            Create Cell
+                            Open Bay
                           </Button>
                         )}
                       </Stack>
@@ -560,14 +628,22 @@ function MetricCard({
     <Paper
       sx={{
         p: 2,
-        borderRadius: 3,
-        border: `1px solid ${alpha(theme.palette.divider, isDark ? 0.9 : 1)}`,
+        borderRadius: 4,
+        border: `2px solid ${alpha(isDark ? '#fffaf2' : '#111111', isDark ? 0.12 : 0.08)}`,
         background: isDark
-          ? `linear-gradient(180deg, ${alpha('#0f172a', 0.96)}, ${alpha(
-              theme.palette.background.paper,
-              0.9
-            )})`
-          : 'linear-gradient(180deg, rgba(255,255,255,0.98), rgba(248,250,252,0.92))',
+          ? 'linear-gradient(180deg, rgba(26,14,14,0.98), rgba(15,9,9,0.96))'
+          : 'linear-gradient(180deg, rgba(255,250,242,1), rgba(248,237,220,0.98))',
+        position: 'relative',
+        overflow: 'hidden',
+        '&::after': {
+          content: '""',
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          top: 0,
+          height: 6,
+          background: `linear-gradient(90deg, ${theme.palette.primary.main}, #111111, #fffaf2)`,
+        },
       }}
     >
       <Stack spacing={1}>

@@ -5,14 +5,15 @@ import { cells, cellStatusHistory } from '../db/schema.js';
 
 const router = Router();
 
-// GET /api/cells — list all cells, optionally filtered by status or project
+// GET /api/bays — list all bays, optionally filtered by status or account
 router.get('/', async (req, res) => {
   try {
-    const { status, project } = req.query;
+    const { status, account, project } = req.query;
     const conditions = [];
 
     if (status) conditions.push(eq(cells.status, status as typeof cells.status.enumValues[number]));
-    if (project) conditions.push(eq(cells.project, project as string));
+    const accountFilter = account || project;
+    if (accountFilter) conditions.push(eq(cells.project, accountFilter as string));
 
     const rows = await db
       .select()
@@ -26,7 +27,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-// GET /api/cells/:id — get single cell with history
+// GET /api/bays/:id — get single bay with service log
 router.get('/:id', async (req, res) => {
   try {
     const cell = await db.query.cells.findFirst({
@@ -34,7 +35,7 @@ router.get('/:id', async (req, res) => {
     });
 
     if (!cell) {
-      return res.status(404).json({ error: 'Cell not found' });
+      return res.status(404).json({ error: 'Bay not found' });
     }
 
     const history = await db
@@ -49,7 +50,7 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// POST /api/cells — create a new cell
+// POST /api/bays — open a new bay
 router.post('/', async (req, res) => {
   try {
     const { feature, project, branch, scope, githubIssueUrl } = req.body;
@@ -73,7 +74,7 @@ router.post('/', async (req, res) => {
       cellId: cell.id,
       fromStatus: null,
       toStatus: 'queued',
-      note: 'Cell created',
+      note: 'Bay opened',
     });
 
     res.status(201).json(cell);
@@ -82,7 +83,7 @@ router.post('/', async (req, res) => {
   }
 });
 
-// PATCH /api/cells/:id/status — transition status
+// PATCH /api/bays/:id/status — move bay status
 router.patch('/:id/status', async (req, res) => {
   try {
     const { status, note } = req.body;
@@ -96,7 +97,7 @@ router.patch('/:id/status', async (req, res) => {
     });
 
     if (!current) {
-      return res.status(404).json({ error: 'Cell not found' });
+      return res.status(404).json({ error: 'Bay not found' });
     }
 
     const [updated] = await db
@@ -118,7 +119,7 @@ router.patch('/:id/status', async (req, res) => {
   }
 });
 
-// PATCH /api/cells/:id — update cell fields
+// PATCH /api/bays/:id — update bay fields
 router.patch('/:id', async (req, res) => {
   try {
     const { scope, blocker, handoff, githubIssueUrl, githubPrUrl } = req.body;
@@ -141,7 +142,7 @@ router.patch('/:id', async (req, res) => {
       .returning();
 
     if (!updated) {
-      return res.status(404).json({ error: 'Cell not found' });
+      return res.status(404).json({ error: 'Bay not found' });
     }
 
     res.json(updated);
@@ -150,7 +151,7 @@ router.patch('/:id', async (req, res) => {
   }
 });
 
-// DELETE /api/cells/:id — delete (teardown) a cell
+// DELETE /api/bays/:id — clear a bay
 router.delete('/:id', async (req, res) => {
   try {
     const [deleted] = await db
@@ -159,7 +160,7 @@ router.delete('/:id', async (req, res) => {
       .returning();
 
     if (!deleted) {
-      return res.status(404).json({ error: 'Cell not found' });
+      return res.status(404).json({ error: 'Bay not found' });
     }
 
     res.json({ deleted });

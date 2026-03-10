@@ -3,22 +3,22 @@
 /**
  * auto-shop CLI
  *
- * Convenience tool for common coordinator workflows
+ * Convenience tool for common service-desk workflows
  *
  * Usage:
- *   auto-shop cell create <name>      Create a new feature cell
- *   auto-shop cell list               List all cells across all projects
- *   auto-shop cell teardown <name>    Clean up a feature cell
- *   auto-shop project list            List all registered projects
- *   auto-shop project show <name>    Show full details for a project
- *   auto-shop queue show              Show merge queue
- *   auto-shop queue next              Merge next cell
- *   auto-shop infra setup <project>   Set up Claude Code hooks via project registry
- *   auto-shop prompt <issue-ref>     Generate agent prompt for a GitHub issue
- *   auto-shop launch <issue-ref>    Generate prompt and launch remote session
- *   auto-shop issues prompt <target> Generate prompt to audit GitHub issues vs code
- *   auto-shop issues audit <target>  Launch remote audit session for a repo/project
- *   auto-shop audit <target>         Alias for issue/code audit launch
+ *   auto-shop bay open <name>         Open a new bay
+ *   auto-shop bay list                List all bays across all accounts
+ *   auto-shop bay clear <name>        Clear a bay setup
+ *   auto-shop account list            List all registered accounts
+ *   auto-shop account show <name>     Show full details for an account
+ *   auto-shop lane show               Show the release lane
+ *   auto-shop lane next               Release the next bay
+ *   auto-shop infra setup <account>   Set up Claude Code hooks from the registry
+ *   auto-shop writeup <issue-ref>     Generate a technician writeup from a repair order
+ *   auto-shop pull-in <issue-ref>     Launch a remote bay session from a repair order
+ *   auto-shop backlog writeup <target> Generate backlog audit writeup
+ *   auto-shop backlog audit <target>  Launch backlog audit session for an account
+ *   auto-shop audit <target>          Alias for backlog audit
  *   auto-shop help                    Show help
  */
 
@@ -69,7 +69,7 @@ function loadProjects() {
 function resolveProject(name) {
   const projects = loadProjects();
   if (!projects[name]) {
-    error(`Unknown project: ${name}\nRegistered projects: ${Object.keys(projects).join(', ')}`);
+    error(`Unknown account: ${name}\nRegistered accounts: ${Object.keys(projects).join(', ')}`);
   }
   return projects[name];
 }
@@ -88,7 +88,7 @@ function parseFlags(argv) {
 function projectList() {
   const projects = loadProjects();
 
-  log('\nRegistered Projects:\n', 'blue');
+  log('\nRegistered Accounts:\n', 'blue');
   for (const [name, proj] of Object.entries(projects)) {
     log(`  ${name}`, 'green');
     log(`    repo:           ${proj.repo}`);
@@ -98,7 +98,7 @@ function projectList() {
     log(`    promotionPath:  ${proj.promotionPath.join(' -> ')}`);
     log(`    scopeTemplate:  ${proj.scopeTemplate || '(none)'}`);
     if (proj.packages) {
-      log(`    packages:       ${Object.keys(proj.packages).length} (use 'project show ${name}' for details)`);
+      log(`    packages:       ${Object.keys(proj.packages).length} (use 'account show ${name}' for details)`);
     }
     log('');
   }
@@ -106,7 +106,7 @@ function projectList() {
 
 function projectShow(name) {
   if (!name) {
-    error('Usage: auto-shop project show <project-name>');
+    error('Usage: auto-shop account show <account-name>');
   }
 
   const proj = resolveProject(name);
@@ -188,12 +188,12 @@ function cellCreateSingleRepo(featureName, proj, projectName) {
       stdio: 'inherit'
     });
 
-    success(`Cell created: ${branchName}`);
-    info(`Next: Create GitHub issue with feature-cell template`);
-    info(`      Launch agent session with: cat templates/agent-prompt.template.md`);
+    success(`Bay opened: ${branchName}`);
+    info(`Next: Create a repair order with the bay template`);
+    info(`      Hand the technician the writeup from: cat templates/agent-prompt.template.md`);
 
   } catch (err) {
-    error(`Failed to create cell: ${err.message}`);
+    error(`Failed to open bay: ${err.message}`);
   }
 }
 
@@ -216,7 +216,7 @@ function cellCreateMultiRepo(featureName, proj, projectName, selectedPackages) {
     ? path.join(REPO_ROOT, proj.scopeTemplate)
     : path.join(REPO_ROOT, 'templates', 'SCOPE.json');
 
-  info(`Creating multi-repo cell: ${branchName}`);
+  info(`Opening multi-repo bay: ${branchName}`);
   info(`Packages: ${packagesToCreate.join(', ')}`);
   log('');
 
@@ -275,18 +275,18 @@ function cellCreateMultiRepo(featureName, proj, projectName, selectedPackages) {
       });
 
       created.push(pkgName);
-      success(`${pkgName}: branch and SCOPE.json created`);
+      success(`${pkgName}: branch and repair plan created`);
 
     } catch (err) {
-      warn(`Failed to create cell in ${pkgName}: ${err.message}`);
+      warn(`Failed to open bay in ${pkgName}: ${err.message}`);
     }
   }
 
   log('');
   if (created.length > 0) {
-    success(`Cell created in ${created.length}/${packagesToCreate.length} packages: ${created.join(', ')}`);
+    success(`Bay opened in ${created.length}/${packagesToCreate.length} packages: ${created.join(', ')}`);
     info(`Feature group: ${featureGroup}`);
-    info(`Next: Create GitHub issue with feature-cell template`);
+    info(`Next: Create a repair order with the bay template`);
   } else {
     error('No packages were successfully set up');
   }
@@ -294,7 +294,7 @@ function cellCreateMultiRepo(featureName, proj, projectName, selectedPackages) {
 
 function cellCreate(featureName) {
   if (!featureName) {
-    error('Usage: auto-shop cell create <feature-name> [--project=<name>] [--packages=<p1,p2,...>]');
+    error('Usage: auto-shop bay open <job-name> [--account=<name>] [--packages=<p1,p2,...>]');
   }
 
   const flags = parseFlags(process.argv);
@@ -303,7 +303,7 @@ function cellCreate(featureName) {
     const proj = resolveProject(flags.project);
 
     if (!fs.existsSync(proj.localPath)) {
-      error(`Project local path does not exist: ${proj.localPath}`);
+      error(`Account local path does not exist: ${proj.localPath}`);
     }
 
     if (proj.packages) {
@@ -375,13 +375,13 @@ function cellList() {
     log('');
 
   } catch (err) {
-    error(`Failed to list cells: ${err.message}`);
+    error(`Failed to list bays: ${err.message}`);
   }
 }
 
 function cellTeardown(featureName) {
   if (!featureName) {
-    error('Usage: auto-shop cell teardown <feature-name>');
+    error('Usage: auto-shop bay clear <job-name>');
   }
 
   const featureSlug = featureName.toLowerCase().replace(/[^a-z0-9]/g, '-');
@@ -392,7 +392,7 @@ function cellTeardown(featureName) {
       cwd: REPO_ROOT,
       stdio: 'inherit'
     });
-    success(`Cell teardown complete: ${featureSlug}`);
+    success(`Bay cleared: ${featureSlug}`);
   } catch (err) {
     error(`Teardown failed: ${err.message}`);
   }
@@ -610,7 +610,7 @@ function buildPrompt(issueRef) {
 
 function promptGenerate(issueRef) {
   if (!issueRef) {
-    error('Usage: auto-shop prompt <issue-ref> [--scope=<path>] [--clipboard]\n\n  <issue-ref> can be:\n    https://github.com/owner/repo/issues/123\n    owner/repo#123');
+    error('Usage: auto-shop writeup <issue-ref> [--scope=<path>] [--clipboard]\n\n  <issue-ref> can be:\n    https://github.com/owner/repo/issues/123\n    owner/repo#123');
   }
 
   const { prompt } = buildPrompt(issueRef);
@@ -629,7 +629,7 @@ function promptGenerate(issueRef) {
 
 function launch(issueRef) {
   if (!issueRef) {
-    error('Usage: auto-shop launch <issue-ref>\n\n  <issue-ref> can be:\n    https://github.com/owner/repo/issues/123\n    owner/repo#123');
+    error('Usage: auto-shop pull-in <issue-ref>\n\n  <issue-ref> can be:\n    https://github.com/owner/repo/issues/123\n    owner/repo#123');
   }
 
   const { prompt, parsed, localPath } = buildPrompt(issueRef);
@@ -667,7 +667,7 @@ function buildIssueAuditPrompt(target) {
   const resolved = resolveProjectOrRepo(target);
   if (!resolved) {
     error(
-      `Unknown project or repo: ${target}\n\nExpected a projects.json key or owner/repo.\nRun: auto-shop project list`
+      `Unknown account or repo: ${target}\n\nExpected a projects.json key or owner/repo.\nRun: auto-shop account list`
     );
   }
 
@@ -694,7 +694,7 @@ function buildIssueAuditPrompt(target) {
 function issuesPrompt(target) {
   if (!target) {
     error(
-      'Usage: auto-shop issues prompt <project-or-repo> [--state=open] [--limit=50] [--clipboard]'
+      'Usage: auto-shop backlog writeup <account-or-repo> [--state=open] [--limit=50] [--clipboard]'
     );
   }
 
@@ -713,7 +713,7 @@ function issuesPrompt(target) {
 
 function issuesAudit(target) {
   if (!target) {
-    error('Usage: auto-shop issues audit <project-or-repo> [--state=open] [--limit=50]');
+    error('Usage: auto-shop backlog audit <account-or-repo> [--state=open] [--limit=50]');
   }
 
   const { prompt, resolved, issueState, issueLimit } = buildIssueAuditPrompt(target);
@@ -748,7 +748,7 @@ function schedulerStart() {
   const scheduler = require('../lib/scheduler/index');
   const running = scheduler.isRunning();
   if (running) {
-    error(`Scheduler is already running (PID ${running}). Use 'auto-shop scheduler stop' first.`);
+    error(`Dispatch board is already running (PID ${running}). Use 'auto-shop dispatch stop' first.`);
   }
   scheduler.start();
 }
@@ -806,7 +806,7 @@ function schedulerStatus() {
     });
 
     req.on('error', () => {
-      warn(`Scheduler PID ${running} is running but API is not responding`);
+      warn(`Dispatch board PID ${running} is running but API is not responding`);
       const saved = scheduler.readSavedState();
       if (saved) {
         log(`\nLast saved state:`, 'blue');
@@ -814,7 +814,7 @@ function schedulerStatus() {
       }
     });
   } else {
-    warn('Scheduler is not running');
+    warn('Dispatch board is not running');
     const saved = scheduler.readSavedState();
     if (saved) {
       log(`\nLast saved state:`, 'blue');
@@ -824,7 +824,7 @@ function schedulerStatus() {
       log(`  Queue:     ${saved.queue ? saved.queue.length : 0} items`);
       log(`  Completed: ${saved.completed ? saved.completed.length : 0} items`);
     }
-    info('Start with: auto-shop scheduler start');
+    info('Start with: auto-shop dispatch start');
   }
 }
 
@@ -834,16 +834,16 @@ function schedulerStop() {
 
   const running = scheduler.isRunning();
   if (!running) {
-    warn('Scheduler is not running');
+    warn('Dispatch board is not running');
     return;
   }
 
-  info(`Sending stop to scheduler (PID ${running})...`);
+  info(`Sending stop to dispatch board (PID ${running})...`);
   const req = http.request(`http://localhost:${scheduler.API_PORT}/api/scheduler/stop`, { method: 'POST' }, (res) => {
     let data = '';
     res.on('data', chunk => { data += chunk; });
     res.on('end', () => {
-      success('Scheduler stopping');
+      success('Dispatch board stopping');
     });
   });
 
@@ -862,113 +862,114 @@ function schedulerStop() {
 
 function showHelp() {
   log(`
-auto-shop — Coordinator CLI for AI development cells
+auto-shop — Service Desk CLI for AI repair bays
 
 USAGE:
   auto-shop <command> [options]
 
 COMMANDS:
-  cell create <name> [--project=<p>] [--packages=<p1,p2,...>]
-                          Create a new feature cell
+  bay open <name> [--account=<a>] [--packages=<p1,p2,...>]
+                          Open a new repair bay
                           - Branches from featureTarget (default: main)
                           - Uses project-specific scope template if available
                           - Provisions database schema (single-repo only)
-                          --project:  Resolve path and settings from projects.json
+                          --account:  Resolve path and settings from projects.json
                           --packages: For multi-repo projects, limit to specific
                                       packages (comma-separated). Default: all.
 
-  cell list               List all cells across all registered projects
-                          - Queries GitHub issues by cell: labels
+  bay list                List all bays across all registered accounts
+                          - Queries GitHub repair orders by bay labels
                           - For multi-repo projects, queries each package repo
-                          - Shows active, queued, blocked, awaiting-review
+                          - Shows in-service, waiting, parts-delay, inspection
 
-  cell teardown <name>    Clean up a feature cell
+  bay clear <name>        Clear a bay setup
                           - Drops database schema
                           - Removes .env.local
 
-  project list            List all registered projects
+  account list            List all registered accounts
                           - Shows repo, path, branch flow, scope template
                           - Shows package count for multi-repo projects
 
-  project show <name>     Show full details for a project
+  account show <name>     Show full details for an account
                           - Lists all packages with repos and paths
                           - Shows per-package overrides (featureTarget, scopeOverrides)
 
-  queue show              Display the merge queue
-                          - Shows cells ready to merge
-                          - Shows merge order and dependencies
+  lane show               Display the release lane
+                          - Shows bays ready to release
+                          - Shows release order and dependencies
 
-  queue next              Merge the next cell in queue
+  lane next               Release the next bay in line
                           (Not yet implemented — use docs/merge-procedure.md)
 
-  infra setup <project>   Set up Claude Code hooks and agent in a repo
+  infra setup <account>   Set up Claude Code hooks and agent in a repo
                           - Resolves path from projects.json
                           - Creates .claude/hooks/ with scope enforcement
-                          - Creates .claude/agents/ with cell-worker template
+                          - Creates .claude/agents/ with bay-worker template
                           - Generates .claude/settings.json
 
   infra setup <path> <name>
                           Legacy two-arg form (still supported)
 
-  prompt <issue-ref> [--scope=<path>] [--clipboard]
-                          Generate an agent prompt for a GitHub issue
+  writeup <issue-ref> [--scope=<path>] [--clipboard]
+                          Generate a technician writeup for a repair order
                           - <issue-ref> is a URL or owner/repo#N
                           - Fills in implement-issue.template.md placeholders
                           - Resolves base branch from projects.json
                           --scope:     Read SCOPE.json for branch name
                           --clipboard: Copy prompt to system clipboard
 
-  launch <issue-ref>      Generate prompt and launch a remote session
+  pull-in <issue-ref>     Generate writeup and pull a job into a remote bay
                           - Resolves local path from projects.json
                           - Runs claude --remote from the correct directory
                           - Works from any directory
 
-  audit <target>          Alias for issues audit
-                          - Same behavior as: auto-shop issues audit <target>
+  audit <target>          Alias for backlog audit
+                          - Same behavior as: auto-shop backlog audit <target>
                           - Supports --state and --limit
 
-  issues prompt <target>  Generate a prompt to audit GitHub issues vs code
-                          - <target> is a project key or owner/repo
+  backlog writeup <target>
+                          Generate a writeup to audit repair orders vs code
+                          - <target> is an account key or owner/repo
                           - Uses a purpose-built issue-audit template
                           - Guides Claude to return close/modify/leave-open
-                          --state:     GitHub issue state to inspect (default: open)
+                          --state:     Repair-order state to inspect (default: open)
                           --limit:     Max issues to inspect (default: 50)
                           --clipboard: Copy prompt to system clipboard
 
-  issues audit <target>   Launch a remote session for issue/code audit
+  backlog audit <target>  Launch a remote session for repair-order audit
                           - Resolves local path from projects.json
                           - Runs claude --remote in the target repo
-                          - Uses the same --state and --limit flags as prompt
+                          - Uses the same --state and --limit flags as writeup
 
-  scheduler start         Start the scheduler daemon
-                          - Polls all repos for claude-ready issues every 5 min
+  dispatch start          Start the dispatch board daemon
+                          - Polls all repos for claude-ready repair orders every 5 min
                           - Maintains up to 4 concurrent claude --remote sessions
                           - Exposes API on port 3401 for GUI monitoring
-                          - Labels: claude-ready -> cell:active -> cell:awaiting-review
+                          - Labels progress from ready to in-service to inspection
 
-  scheduler status        Show scheduler status
+  dispatch status         Show dispatch board status
                           - Queries the running daemon or reads saved state
 
-  scheduler stop          Stop the scheduler daemon gracefully
+  dispatch stop           Stop the dispatch board gracefully
 
   help                    Show this help message
 
 EXAMPLES:
-  auto-shop project list
-  auto-shop project show nodots-backgammon
-  auto-shop cell create pr-calc --project=nodots-backgammon --packages=types,core
-  auto-shop cell create full-feature --project=nodots-backgammon
-  auto-shop cell create email-provider --project=a2z-freight-claims
-  auto-shop cell list
-  auto-shop cell teardown gnubg-hints
+  auto-shop account list
+  auto-shop account show nodots-backgammon
+  auto-shop bay open pr-calc --account=nodots-backgammon --packages=types,core
+  auto-shop bay open full-feature --account=nodots-backgammon
+  auto-shop bay open email-provider --account=a2z-freight-claims
+  auto-shop bay list
+  auto-shop bay clear gnubg-hints
   auto-shop infra setup a2z-freight-claims
-  auto-shop queue show
-  auto-shop prompt nodots/ai-calc-tutor-mvp#1
-  auto-shop prompt https://github.com/nodots/ai-calc-tutor-mvp/issues/1 --clipboard
-  auto-shop launch nodots/PoslunsLaw#302
+  auto-shop lane show
+  auto-shop writeup nodots/ai-calc-tutor-mvp#1
+  auto-shop writeup https://github.com/nodots/ai-calc-tutor-mvp/issues/1 --clipboard
+  auto-shop pull-in nodots/PoslunsLaw#302
   auto-shop audit a2z-freight-claims --state=open --limit=50
-  auto-shop issues prompt a2z-freight-claims --state=open --limit=25
-  auto-shop issues audit nodots/PoslunsLaw --state=open --limit=50
+  auto-shop backlog writeup a2z-freight-claims --state=open --limit=25
+  auto-shop backlog audit nodots/PoslunsLaw --state=open --limit=50
 
 DOCUMENTATION:
   See docs/coordinator-workflow.md for detailed instructions
@@ -983,35 +984,38 @@ const arg1 = process.argv[3];
 const arg2 = process.argv[4];
 
 switch (command) {
+  case 'bay':
   case 'cell':
-    if (arg1 === 'create') {
+    if (arg1 === 'open' || arg1 === 'create') {
       cellCreate(arg2);
     } else if (arg1 === 'list') {
       cellList();
-    } else if (arg1 === 'teardown') {
+    } else if (arg1 === 'clear' || arg1 === 'teardown') {
       cellTeardown(arg2);
     } else {
-      error('Usage: auto-shop cell <create|list|teardown>');
+      error('Usage: auto-shop bay <open|list|clear>');
     }
     break;
 
+  case 'account':
   case 'project':
     if (arg1 === 'list') {
       projectList();
     } else if (arg1 === 'show') {
       projectShow(arg2);
     } else {
-      error('Usage: auto-shop project <list|show>');
+      error('Usage: auto-shop account <list|show>');
     }
     break;
 
+  case 'lane':
   case 'queue':
     if (arg1 === 'show') {
       queueShow();
     } else if (arg1 === 'next') {
       queueNext();
     } else {
-      error('Usage: auto-shop queue <show|next>');
+      error('Usage: auto-shop lane <show|next>');
     }
     break;
 
@@ -1023,10 +1027,12 @@ switch (command) {
     }
     break;
 
+  case 'writeup':
   case 'prompt':
     promptGenerate(arg1);
     break;
 
+  case 'pull-in':
   case 'launch':
     launch(arg1);
     break;
@@ -1035,16 +1041,18 @@ switch (command) {
     issuesAudit(arg1);
     break;
 
+  case 'backlog':
   case 'issues':
-    if (arg1 === 'prompt') {
+    if (arg1 === 'writeup' || arg1 === 'prompt') {
       issuesPrompt(arg2);
     } else if (arg1 === 'audit') {
       issuesAudit(arg2);
     } else {
-      error('Usage: auto-shop issues <prompt|audit> <project-or-repo>');
+      error('Usage: auto-shop backlog <writeup|audit> <account-or-repo>');
     }
     break;
 
+  case 'dispatch':
   case 'scheduler':
     if (arg1 === 'start') {
       schedulerStart();
@@ -1053,7 +1061,7 @@ switch (command) {
     } else if (arg1 === 'stop') {
       schedulerStop();
     } else {
-      error('Usage: auto-shop scheduler <start|status|stop>');
+      error('Usage: auto-shop dispatch <start|status|stop>');
     }
     break;
 

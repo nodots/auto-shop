@@ -14,7 +14,7 @@ function loadProjectsJson() {
   return JSON.parse(fs.readFileSync(filePath, 'utf8')).projects;
 }
 
-// GET /api/projects — list all projects from DB with packages
+// GET /api/accounts — list all accounts from DB with packages
 router.get('/', async (_req, res) => {
   try {
     const allProjects = await db.query.projects.findMany({
@@ -42,7 +42,7 @@ router.get('/', async (_req, res) => {
   }
 });
 
-// POST /api/projects/sync — sync projects.json to DB
+// POST /api/accounts/sync — sync projects.json to DB
 router.post('/sync', async (_req, res) => {
   try {
     const projectsData = loadProjectsJson();
@@ -99,7 +99,7 @@ router.post('/sync', async (_req, res) => {
   }
 });
 
-// GET /api/projects/raw — read projects.json directly (no DB needed)
+// GET /api/accounts/raw — read projects.json directly (no DB needed)
 router.get('/raw', (_req, res) => {
   try {
     const projectsData = loadProjectsJson();

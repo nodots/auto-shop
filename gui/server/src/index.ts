@@ -2,13 +2,13 @@ import express from 'express';
 import cors from 'cors';
 import path from 'path';
 import { checkConnection } from './db.js';
-import projectsRouter from './routes/projects.js';
-import cellsRouter from './routes/cells.js';
-import dashboardRouter from './routes/dashboard.js';
-import mergeQueueRouter from './routes/mergeQueue.js';
+import accountsRouter from './routes/accounts.js';
+import baysRouter from './routes/bays.js';
+import shopFloorRouter from './routes/shopFloor.js';
+import releaseLaneRouter from './routes/releaseLane.js';
 import gitRouter from './routes/git.js';
-import schedulerRouter from './routes/scheduler.js';
-import issuesRouter from './routes/issues.js';
+import dispatchBoardRouter from './routes/dispatchBoard.js';
+import repairOrdersRouter from './routes/repairOrders.js';
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '3400', 10);
@@ -17,13 +17,19 @@ app.use(cors());
 app.use(express.json());
 
 // API routes
-app.use('/api/projects', projectsRouter);
-app.use('/api/cells', cellsRouter);
-app.use('/api/dashboard', dashboardRouter);
-app.use('/api/merge-queue', mergeQueueRouter);
+app.use('/api/accounts', accountsRouter);
+app.use('/api/projects', accountsRouter);
+app.use('/api/bays', baysRouter);
+app.use('/api/cells', baysRouter);
+app.use('/api/shop-floor', shopFloorRouter);
+app.use('/api/dashboard', shopFloorRouter);
+app.use('/api/release-lane', releaseLaneRouter);
+app.use('/api/merge-queue', releaseLaneRouter);
 app.use('/api/git', gitRouter);
-app.use('/api/scheduler', schedulerRouter);
-app.use('/api/issues', issuesRouter);
+app.use('/api/dispatch', dispatchBoardRouter);
+app.use('/api/scheduler', dispatchBoardRouter);
+app.use('/api/repair-orders', repairOrdersRouter);
+app.use('/api/issues', repairOrdersRouter);
 
 // Health check
 app.get('/api/health', (_req, res) => {

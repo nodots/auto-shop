@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
-import { fetchCells } from '../api';
-import StatusBadge from '../components/StatusBadge';
+import { fetchBays } from '../serviceDeskApi';
+import BayStatusBadge from '../components/BayStatusBadge';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
@@ -21,13 +21,13 @@ import Stack from '@mui/material/Stack';
 
 const statuses = ['all', 'queued', 'active', 'blocked', 'awaiting-review', 'merged'];
 
-export default function CellsList() {
+export default function Bays() {
   const [searchParams, setSearchParams] = useSearchParams();
   const statusFilter = searchParams.get('status') || 'all';
 
-  const { data: cells, isLoading, error } = useQuery({
-    queryKey: ['cells', statusFilter],
-    queryFn: () => fetchCells(statusFilter === 'all' ? undefined : { status: statusFilter }),
+  const { data: bays, isLoading, error } = useQuery({
+    queryKey: ['bays', statusFilter],
+    queryFn: () => fetchBays(statusFilter === 'all' ? undefined : { status: statusFilter }),
   });
 
   if (isLoading) return <CircularProgress />;
@@ -36,9 +36,9 @@ export default function CellsList() {
   return (
     <Stack spacing={2}>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Typography variant="h5" fontWeight="bold">Cells</Typography>
-        <Button component={Link} to="/cells/new" variant="contained" size="small">
-          New Cell
+        <Typography variant="h5" fontWeight="bold">Bays</Typography>
+        <Button component={Link} to="/bays/new" variant="contained" size="small">
+          Open Bay
         </Button>
       </Box>
 
@@ -57,40 +57,40 @@ export default function CellsList() {
         ))}
       </ToggleButtonGroup>
 
-      {!cells || cells.length === 0 ? (
+      {!bays || bays.length === 0 ? (
         <Typography color="text.disabled" align="center" sx={{ py: 4 }}>
-          No cells found
+          No bays found
         </Typography>
       ) : (
         <TableContainer component={Paper}>
           <Table size="small">
             <TableHead>
               <TableRow>
-                <TableCell>Feature</TableCell>
-                <TableCell>Project</TableCell>
-                <TableCell>Branch</TableCell>
+                <TableCell>Job</TableCell>
+                <TableCell>Account</TableCell>
+                <TableCell>Job Branch</TableCell>
                 <TableCell>Status</TableCell>
                 <TableCell>Updated</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {cells.map((cell) => (
-                <TableRow key={cell.id} hover>
+              {bays.map((bay) => (
+                <TableRow key={bay.id} hover>
                   <TableCell>
-                    <MuiLink component={Link} to={`/cells/${cell.id}`} underline="hover" fontWeight="medium">
-                      {cell.feature}
+                    <MuiLink component={Link} to={`/bays/${bay.id}`} underline="hover" fontWeight="medium">
+                      {bay.feature}
                     </MuiLink>
                   </TableCell>
-                  <TableCell>{cell.project}</TableCell>
+                  <TableCell>{bay.project}</TableCell>
                   <TableCell>
                     <Typography variant="body2" fontFamily="monospace" fontSize="0.75rem">
-                      {cell.branch}
+                      {bay.branch}
                     </Typography>
                   </TableCell>
                   <TableCell>
-                    <StatusBadge status={cell.status} />
+                    <BayStatusBadge status={bay.status} />
                   </TableCell>
-                  <TableCell>{new Date(cell.updatedAt).toLocaleDateString()}</TableCell>
+                  <TableCell>{new Date(bay.updatedAt).toLocaleDateString()}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

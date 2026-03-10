@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { fetchMergeQueue, removeFromMergeQueue, reorderMergeQueue } from '../api';
-import StatusBadge from '../components/StatusBadge';
+import { fetchReleaseLane, removeFromReleaseLane, reorderReleaseLane } from '../serviceDeskApi';
+import BayStatusBadge from '../components/BayStatusBadge';
 import Typography from '@mui/material/Typography';
 import Paper from '@mui/material/Paper';
 import Button from '@mui/material/Button';
@@ -14,22 +14,22 @@ import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import DeleteIcon from '@mui/icons-material/Delete';
 
-export default function MergeQueue() {
+export default function ReleaseLane() {
   const queryClient = useQueryClient();
 
   const { data: queue, isLoading, error } = useQuery({
-    queryKey: ['merge-queue'],
-    queryFn: fetchMergeQueue,
+    queryKey: ['release-lane'],
+    queryFn: fetchReleaseLane,
   });
 
   const removeMutation = useMutation({
-    mutationFn: removeFromMergeQueue,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['merge-queue'] }),
+    mutationFn: removeFromReleaseLane,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['release-lane'] }),
   });
 
   const reorderMutation = useMutation({
-    mutationFn: reorderMergeQueue,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['merge-queue'] }),
+    mutationFn: reorderReleaseLane,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['release-lane'] }),
   });
 
   const moveItem = (index: number, direction: 'up' | 'down') => {
@@ -48,11 +48,11 @@ export default function MergeQueue() {
 
   return (
     <Stack spacing={3}>
-      <Typography variant="h5" fontWeight="bold">Merge Queue</Typography>
+      <Typography variant="h5" fontWeight="bold">Release Lane</Typography>
 
       {!queue || queue.length === 0 ? (
         <Typography color="text.disabled" align="center" sx={{ py: 4 }}>
-          Merge queue is empty
+          Release lane is empty
         </Typography>
       ) : (
         <Stack spacing={1}>
@@ -72,11 +72,11 @@ export default function MergeQueue() {
                 </Typography>
               </Box>
 
-              <StatusBadge status={item.status} />
+              <BayStatusBadge status={item.status} />
 
               {item.githubPrUrl && (
                 <MuiLink href={item.githubPrUrl} target="_blank" rel="noopener noreferrer" variant="body2">
-                  PR
+                  Release PR
                 </MuiLink>
               )}
 

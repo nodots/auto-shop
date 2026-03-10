@@ -5,13 +5,13 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import './index.css';
 import { ThemeModeProvider } from './ThemeContext';
 import Layout from './components/Layout';
-import Dashboard from './pages/Dashboard';
-import CellsList from './pages/CellsList';
-import CellDetail from './pages/CellDetail';
-import CellCreate from './pages/CellCreate';
-import Projects from './pages/Projects';
-import MergeQueue from './pages/MergeQueue';
-import Scheduler from './pages/Scheduler';
+import ShopFloor from './pages/ShopFloor';
+import Bays from './pages/Bays';
+import BayDetail from './pages/BayDetail';
+import OpenBay from './pages/OpenBay';
+import Accounts from './pages/Accounts';
+import ReleaseLane from './pages/ReleaseLane';
+import DispatchBoard from './pages/DispatchBoard';
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } },
@@ -24,13 +24,19 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         <BrowserRouter>
           <Routes>
             <Route element={<Layout />}>
-              <Route index element={<Dashboard />} />
-              <Route path="cells" element={<CellsList />} />
-              <Route path="cells/new" element={<CellCreate />} />
-              <Route path="cells/:id" element={<CellDetail />} />
-              <Route path="projects" element={<Projects />} />
-              <Route path="merge-queue" element={<MergeQueue />} />
-              <Route path="scheduler" element={<Scheduler />} />
+              <Route index element={<ShopFloor />} />
+              <Route path="bays" element={<Bays />} />
+              <Route path="cells" element={<Bays />} />
+              <Route path="bays/new" element={<OpenBay />} />
+              <Route path="cells/new" element={<OpenBay />} />
+              <Route path="bays/:id" element={<BayDetail />} />
+              <Route path="cells/:id" element={<BayDetail />} />
+              <Route path="accounts" element={<Accounts />} />
+              <Route path="projects" element={<Accounts />} />
+              <Route path="release-lane" element={<ReleaseLane />} />
+              <Route path="merge-queue" element={<ReleaseLane />} />
+              <Route path="dispatch" element={<DispatchBoard />} />
+              <Route path="scheduler" element={<DispatchBoard />} />
             </Route>
           </Routes>
         </BrowserRouter>

@@ -1,5 +1,5 @@
 # auto-shop
-Coordination Layer for Multi-Project Agentic AI-Driven Software Development
+Service Desk Layer for Multi-Account Agentic AI Repair Work
 
 ---
 
@@ -13,22 +13,22 @@ For detailed architecture: **[Implementation Plan](docs/ai-dev-scaling-plan.md)*
 
 ## What Is This?
 
-**auto-shop** enables running **4+ AI agents working on different features simultaneously** without conflicts. Each agent gets a bounded scope, works asynchronously, and a single human coordinator manages the boundaries.
+**auto-shop** enables running **4+ AI technicians working on different jobs simultaneously** without conflicts. Each technician gets a bounded repair plan, works asynchronously, and a single service manager manages the floor.
 
 ### How It Works
 
-1. **AI Dev Cell** — One agent, one feature, one branch, one scoped environment
-2. **Scope Manifest** (SCOPE.json) — Declares exactly which files the agent can modify
+1. **Repair Bay** — One technician, one job, one branch, one scoped environment
+2. **Repair Plan** (SCOPE.json) — Declares exactly which files the technician can modify
 3. **Pre-Commit Hook** — Prevents commits outside the scope
-4. **Async Coordination** — Two 30-minute sessions per day manages 4 concurrent cells
-5. **Contract Freezing** — Shared interfaces change via dedicated contract-change cells
+4. **Async Coordination** — Two 30-minute sessions per day manages 4 concurrent bays
+5. **Contract Freezing** — Shared interfaces change via dedicated contract-change bays
 
 ### Result
 
-- **No conflicts** — Each cell is isolated
-- **Sustainable** — 1 hour/day coordinator overhead
-- **Scalable** — Works for 4+ concurrent cells
-- **Testable** — Clear acceptance criteria per cell
+- **No conflicts** — Each bay is isolated
+- **Sustainable** — 1 hour/day service-manager overhead
+- **Scalable** — Works for 4+ concurrent bays
+- **Testable** — Clear acceptance criteria per bay
 
 ---
 
@@ -100,7 +100,7 @@ auto-shop/
 
 ## Status Labels
 
-Use these labels to track cell status on GitHub:
+Use these labels to track bay status on GitHub:
 
 | Label | Meaning |
 |-------|---------|
@@ -131,23 +131,23 @@ npx husky install
 
 1. **Read [quickstart.md](docs/quickstart.md)** (30 min)
 2. **Read [CLAUDE.md](CLAUDE.md)** for your role
-3. **Start your first feature cell** using the checklist in CLAUDE.md
+3. **Open your first bay** using the checklist in CLAUDE.md
 
 ---
 
 ## Daily Coordinator Workflow
 
 **Morning (20–30 min):**
-- Review blocked cells
-- Review completed cells ready to merge
-- Start new cells if capacity
+- Review blocked bays
+- Review completed bays ready to release
+- Open new bays if capacity
 - Update labels
 
 **Evening (20–30 min):**
-- Merge completed cells (in dependency order)
+- Release completed bays (in dependency order)
 - Teardown environments
 - Pre-write scope manifests for tomorrow
-- Reprioritize queue
+- Reprioritize the waiting lot
 
 See **[coordinator-workflow.md](docs/coordinator-workflow.md)** for detailed checklists.
 
@@ -155,31 +155,31 @@ See **[coordinator-workflow.md](docs/coordinator-workflow.md)** for detailed che
 
 ## CLI Workflows
 
-`auto-shop` includes a small coordinator CLI in [`bin/auto-shop`](bin/auto-shop).
+`auto-shop` includes a small service-desk CLI in [`bin/auto-shop`](bin/auto-shop).
 
 Common issue-driven commands:
 
 ```bash
-# Start a feature implementation session from a GitHub issue
-./bin/auto-shop launch nodots/PoslunsLaw#352
+# Pull a repair order into a bay session
+./bin/auto-shop pull-in nodots/PoslunsLaw#352
 
-# Generate, but do not launch, the implementation prompt
-./bin/auto-shop prompt nodots/PoslunsLaw#352 --clipboard
+# Generate, but do not launch, the technician writeup
+./bin/auto-shop writeup nodots/PoslunsLaw#352 --clipboard
 
-# Audit open issues against the current code and get a close/modify/open checklist
+# Audit open repair orders against the current code and get a close/modify/open checklist
 ./bin/auto-shop audit a2z-freight-claims --state=open --limit=50
 
-# Generate the issue-audit prompt without launching Claude
-./bin/auto-shop issues prompt nodots/PoslunsLaw --state=open --limit=25
+# Generate the backlog-audit writeup without launching Claude
+./bin/auto-shop backlog writeup nodots/PoslunsLaw --state=open --limit=25
 ```
 
 ---
 
 ## Capacity Management
 
-- **1–2 cells**: Very safe
-- **3 cells**: Comfortable (normal)
-- **4 cells**: At maximum capacity
+- **1–2 bays**: Very safe
+- **3 bays**: Comfortable (normal)
+- **4 bays**: At maximum capacity
 - **5+ cells**: Too many (rethink approach)
 
 ---

@@ -1,14 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  fetchSchedulerStatus,
-  pauseScheduler,
-  resumeScheduler,
-  triggerScan,
-  stopScheduler,
-  removeFromSchedulerQueue,
-  killSession,
-  SchedulerStatus,
-} from '../api';
+  fetchDispatchBoardStatus,
+  pauseDispatch,
+  resumeDispatch,
+  scanWaitingLot,
+  stopDispatch,
+  removeFromDispatchBoard,
+  stopTechnicianSession,
+} from '../serviceDeskApi';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Paper from '@mui/material/Paper';
@@ -40,41 +39,46 @@ function elapsed(iso: string): string {
 
 function StatusChip({ status, paused }: { status: string; paused: boolean }) {
   if (status === 'running' && paused) {
-    return <Chip label="paused" color="warning" size="small" />;
+    return <Chip label="service paused" color="warning" size="small" />;
   }
+  const labels: Record<string, string> = {
+    running: 'open',
+    stopping: 'winding down',
+    stopped: 'closed',
+  };
   const colorMap: Record<string, 'success' | 'error' | 'default' | 'warning'> = {
     running: 'success',
     stopping: 'warning',
     stopped: 'default',
   };
-  return <Chip label={status} color={colorMap[status] || 'default'} size="small" />;
+  return <Chip label={labels[status] || status} color={colorMap[status] || 'default'} size="small" />;
 }
 
-export default function Scheduler() {
+export default function DispatchBoard() {
   const queryClient = useQueryClient();
   const { data, isLoading, error } = useQuery({
-    queryKey: ['scheduler'],
-    queryFn: fetchSchedulerStatus,
+    queryKey: ['dispatch-board'],
+    queryFn: fetchDispatchBoardStatus,
     refetchInterval: 5000,
   });
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['scheduler'] });
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ['dispatch-board'] });
 
-  const pause = useMutation({ mutationFn: pauseScheduler, onSuccess: invalidate });
-  const resume = useMutation({ mutationFn: resumeScheduler, onSuccess: invalidate });
-  const scan = useMutation({ mutationFn: triggerScan, onSuccess: invalidate });
-  const stop = useMutation({ mutationFn: stopScheduler, onSuccess: invalidate });
-  const removeQueue = useMutation({ mutationFn: removeFromSchedulerQueue, onSuccess: invalidate });
-  const kill = useMutation({ mutationFn: killSession, onSuccess: invalidate });
+  const pause = useMutation({ mutationFn: pauseDispatch, onSuccess: invalidate });
+  const resume = useMutation({ mutationFn: resumeDispatch, onSuccess: invalidate });
+  const scan = useMutation({ mutationFn: scanWaitingLot, onSuccess: invalidate });
+  const stop = useMutation({ mutationFn: stopDispatch, onSuccess: invalidate });
+  const removeQueue = useMutation({ mutationFn: removeFromDispatchBoard, onSuccess: invalidate });
+  const kill = useMutation({ mutationFn: stopTechnicianSession, onSuccess: invalidate });
 
   if (isLoading) return <CircularProgress />;
 
   if (error) {
     return (
       <Stack spacing={2}>
-        <Typography variant="h5" fontWeight="bold">Scheduler</Typography>
+        <Typography variant="h5" fontWeight="bold">Dispatch Board</Typography>
         <Alert severity="warning">
-          Scheduler daemon is not running. Start it with: <code>auto-shop scheduler start</code>
+          Dispatch board is not running. Start it with: <code>auto-shop dispatch start</code>
         </Alert>
       </Stack>
     );
@@ -89,28 +93,28 @@ export default function Scheduler() {
       {/* Header + Controls */}
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Typography variant="h5" fontWeight="bold">Scheduler</Typography>
+          <Typography variant="h5" fontWeight="bold">Dispatch Board</Typography>
           <StatusChip status={data.status} paused={data.paused} />
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
           {data.paused ? (
-            <Button variant="outlined" size="small" onClick={() => resume.mutate()}>Resume</Button>
+            <Button variant="outlined" size="small" onClick={() => resume.mutate()}>Resume Service</Button>
           ) : (
-            <Button variant="outlined" size="small" onClick={() => pause.mutate()}>Pause</Button>
+            <Button variant="outlined" size="small" onClick={() => pause.mutate()}>Pause Service</Button>
           )}
-          <Button variant="outlined" size="small" onClick={() => scan.mutate()}>Scan Now</Button>
-          <Button variant="outlined" size="small" color="error" onClick={() => stop.mutate()}>Stop</Button>
+          <Button variant="outlined" size="small" onClick={() => scan.mutate()}>Check Waiting Lot</Button>
+          <Button variant="outlined" size="small" color="error" onClick={() => stop.mutate()}>Shut Down</Button>
         </Box>
       </Box>
 
       {/* Info bar */}
       <Box sx={{ display: 'flex', gap: 3, color: 'text.secondary' }}>
         <Typography variant="body2">
-          Last scan: {data.lastScanAt ? new Date(data.lastScanAt).toLocaleTimeString() : 'never'}
+          Last pull from waiting lot: {data.lastScanAt ? new Date(data.lastScanAt).toLocaleTimeString() : 'never'}
         </Typography>
         {data.startedAt && (
           <Typography variant="body2">
-            Uptime: {elapsed(data.startedAt)}
+            Run time: {elapsed(data.startedAt)}
           </Typography>
         )}
       </Box>
@@ -118,7 +122,7 @@ export default function Scheduler() {
       {/* Capacity */}
       <Paper sx={{ p: 2 }}>
         <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-          Session Capacity
+          Technician Capacity
         </Typography>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <Box sx={{ flex: 1 }}>
@@ -138,19 +142,19 @@ export default function Scheduler() {
       {/* Active Sessions */}
       <Paper sx={{ p: 2 }}>
         <Typography variant="subtitle1" fontWeight="medium" gutterBottom>
-          Active Sessions ({data.activeSessions.length})
+          Active Technicians ({data.activeSessions.length})
         </Typography>
         {data.activeSessions.length === 0 ? (
-          <Typography color="text.disabled" variant="body2">No active sessions</Typography>
+          <Typography color="text.disabled" variant="body2">No active technicians</Typography>
         ) : (
           <TableContainer>
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell>Issue</TableCell>
-                  <TableCell>Branch</TableCell>
+                  <TableCell>Repair Order</TableCell>
+                  <TableCell>Job Branch</TableCell>
                   <TableCell>PID</TableCell>
-                  <TableCell>Running</TableCell>
+                  <TableCell>On Lift</TableCell>
                   <TableCell align="right">Actions</TableCell>
                 </TableRow>
               </TableHead>
@@ -165,7 +169,7 @@ export default function Scheduler() {
                     <TableCell>{s.pid}</TableCell>
                     <TableCell>{elapsed(s.startedAt)}</TableCell>
                     <TableCell align="right">
-                      <IconButton size="small" color="error" onClick={() => kill.mutate(s.issueRef)} title="Kill session">
+                      <IconButton size="small" color="error" onClick={() => kill.mutate(s.issueRef)} title="Stop technician session">
                         <StopIcon fontSize="small" />
                       </IconButton>
                     </TableCell>
@@ -180,18 +184,18 @@ export default function Scheduler() {
       {/* Queue */}
       <Paper sx={{ p: 2 }}>
         <Typography variant="subtitle1" fontWeight="medium" gutterBottom>
-          Queue ({data.queueSize})
+          Waiting Lot ({data.queueSize})
         </Typography>
         {data.queue.length === 0 ? (
-          <Typography color="text.disabled" variant="body2">Queue is empty</Typography>
+          <Typography color="text.disabled" variant="body2">Waiting lot is empty</Typography>
         ) : (
           <TableContainer>
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell>Issue</TableCell>
+                  <TableCell>Repair Order</TableCell>
                   <TableCell>Repo</TableCell>
-                  <TableCell>Queued</TableCell>
+                  <TableCell>Waiting</TableCell>
                   <TableCell align="right">Actions</TableCell>
                 </TableRow>
               </TableHead>
@@ -205,7 +209,7 @@ export default function Scheduler() {
                     <TableCell>{q.repo}</TableCell>
                     <TableCell>{elapsed(q.discoveredAt)}</TableCell>
                     <TableCell align="right">
-                      <IconButton size="small" color="error" onClick={() => removeQueue.mutate(q.issueRef)} title="Remove from queue">
+                      <IconButton size="small" color="error" onClick={() => removeQueue.mutate(q.issueRef)} title="Remove from waiting lot">
                         <DeleteIcon fontSize="small" />
                       </IconButton>
                     </TableCell>
@@ -221,17 +225,17 @@ export default function Scheduler() {
       {data.completed.length > 0 && (
         <Paper sx={{ p: 2 }}>
           <Typography variant="subtitle1" fontWeight="medium" gutterBottom>
-            Recent Completions ({data.completed.length})
+            Recent Releases ({data.completed.length})
           </Typography>
           <TableContainer>
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell>Issue</TableCell>
-                  <TableCell>Branch</TableCell>
+                  <TableCell>Repair Order</TableCell>
+                  <TableCell>Job Branch</TableCell>
                   <TableCell>Exit Code</TableCell>
                   <TableCell>Duration</TableCell>
-                  <TableCell>Completed</TableCell>
+                  <TableCell>Released</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>

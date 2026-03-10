@@ -8,10 +8,18 @@ const statusColors: Record<string, 'default' | 'primary' | 'error' | 'warning' |
   merged: 'success',
 };
 
-export default function StatusBadge({ status }: { status: string }) {
+const statusLabels: Record<string, string> = {
+  queued: 'waiting in line',
+  active: 'in service',
+  blocked: 'waiting on parts',
+  'awaiting-review': 'ready for inspection',
+  merged: 'released',
+};
+
+export default function BayStatusBadge({ status }: { status: string }) {
   return (
     <Chip
-      label={status}
+      label={statusLabels[status] || status}
       color={statusColors[status] || 'default'}
       size="small"
       variant="outlined"

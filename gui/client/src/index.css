@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Alfa+Slab+One&family=Bebas+Neue&family=Work+Sans:wght@400;500;700;800&display=swap');
+
 body {
   margin: 0;
 }
@@ -10,6 +12,20 @@ body {
   box-sizing: border-box;
 }
 
+html {
+  background:
+    linear-gradient(180deg, #1c0f0f 0, #1c0f0f 24px, #f8f1e3 24px, #f8f1e3 100%);
+}
+
+body {
+  min-height: 100vh;
+  background:
+    linear-gradient(90deg, rgba(214, 40, 40, 0.08) 0, rgba(214, 40, 40, 0.08) 2px, transparent 2px, transparent 100%),
+    linear-gradient(180deg, rgba(17, 17, 17, 0.06) 0, rgba(17, 17, 17, 0.06) 2px, transparent 2px, transparent 100%),
+    #f8f1e3;
+  background-size: 100% 100%, 100% 100%, auto;
+}
+
 ::selection {
-  background: rgba(14, 165, 233, 0.22);
+  background: rgba(214, 40, 40, 0.28);
 }

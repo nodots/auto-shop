@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
-import { createCell, fetchProjectsRaw } from '../api';
+import { openBay, fetchAccountsRaw } from '../serviceDeskApi';
 import Typography from '@mui/material/Typography';
 import TextField from '@mui/material/TextField';
 import Button from '@mui/material/Button';
@@ -14,7 +14,7 @@ function slugify(value: string): string {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 }
 
-export default function CellCreate() {
+export default function OpenBay() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
@@ -28,14 +28,14 @@ export default function CellCreate() {
   const [issueUrl, setIssueUrl] = useState(prefillIssueUrl);
   const [error, setError] = useState('');
 
-  const { data: projects } = useQuery({
-    queryKey: ['projects-raw'],
-    queryFn: fetchProjectsRaw,
+  const { data: accounts } = useQuery({
+    queryKey: ['accounts-raw'],
+    queryFn: fetchAccountsRaw,
   });
 
   const mutation = useMutation({
-    mutationFn: createCell,
-    onSuccess: (cell) => navigate(`/cells/${cell.id}`),
+    mutationFn: openBay,
+    onSuccess: (bay) => navigate(`/bays/${bay.id}`),
     onError: (err: Error) => setError(err.message),
   });
 
@@ -47,7 +47,7 @@ export default function CellCreate() {
   return (
     <Box sx={{ maxWidth: 560, mx: 'auto' }}>
       <Stack spacing={3}>
-        <Typography variant="h5" fontWeight="bold">Create Cell</Typography>
+        <Typography variant="h5" fontWeight="bold">Open Bay</Typography>
 
         {error && <Alert severity="error">{error}</Alert>}
 
@@ -55,7 +55,7 @@ export default function CellCreate() {
           onSubmit={(e) => {
             e.preventDefault();
             if (!feature || !project || !branch) {
-              setError('Feature, project, and branch are required');
+              setError('Job, account, and branch are required');
               return;
             }
             mutation.mutate({
@@ -68,7 +68,7 @@ export default function CellCreate() {
         >
           <Stack spacing={2}>
             <TextField
-              label="Feature Name"
+              label="Job Name"
               size="small"
               fullWidth
               value={feature}
@@ -77,16 +77,16 @@ export default function CellCreate() {
             />
 
             <TextField
-              label="Project"
+              label="Account"
               size="small"
               fullWidth
               select
               value={project}
               onChange={(e) => setProject(e.target.value)}
             >
-              <MenuItem value="">Select project...</MenuItem>
-              {projects &&
-                Object.keys(projects).map((name) => (
+              <MenuItem value="">Select account...</MenuItem>
+              {accounts &&
+                Object.keys(accounts).map((name) => (
                   <MenuItem key={name} value={name}>
                     {name}
                   </MenuItem>
@@ -94,7 +94,7 @@ export default function CellCreate() {
             </TextField>
 
             <TextField
-              label="Branch"
+              label="Job Branch"
               size="small"
               fullWidth
               value={branch}
@@ -103,7 +103,7 @@ export default function CellCreate() {
             />
 
             <TextField
-              label="GitHub Issue URL (optional)"
+              label="Repair Order URL (optional)"
               size="small"
               fullWidth
               type="url"
@@ -114,9 +114,9 @@ export default function CellCreate() {
 
             <Box sx={{ display: 'flex', gap: 1.5 }}>
               <Button type="submit" variant="contained" disabled={mutation.isPending}>
-                {mutation.isPending ? 'Creating...' : 'Create Cell'}
+                {mutation.isPending ? 'Opening...' : 'Open Bay'}
               </Button>
-              <Button variant="outlined" onClick={() => navigate('/cells')}>
+              <Button variant="outlined" onClick={() => navigate('/bays')}>
                 Cancel
               </Button>
             </Box>

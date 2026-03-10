@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { createCell, fetchProjectsRaw } from '../api';
 import Typography from '@mui/material/Typography';
@@ -10,12 +10,22 @@ import Alert from '@mui/material/Alert';
 import Stack from '@mui/material/Stack';
 import Box from '@mui/material/Box';
 
+function slugify(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+}
+
 export default function CellCreate() {
   const navigate = useNavigate();
-  const [feature, setFeature] = useState('');
-  const [project, setProject] = useState('');
-  const [branch, setBranch] = useState('');
-  const [issueUrl, setIssueUrl] = useState('');
+  const [searchParams] = useSearchParams();
+
+  const prefillFeature = searchParams.get('feature') || '';
+  const prefillProject = searchParams.get('project') || '';
+  const prefillIssueUrl = searchParams.get('issueUrl') || '';
+
+  const [feature, setFeature] = useState(prefillFeature);
+  const [project, setProject] = useState(prefillProject);
+  const [branch, setBranch] = useState(prefillFeature ? `feat/${slugify(prefillFeature)}` : '');
+  const [issueUrl, setIssueUrl] = useState(prefillIssueUrl);
   const [error, setError] = useState('');
 
   const { data: projects } = useQuery({
@@ -31,8 +41,7 @@ export default function CellCreate() {
 
   const handleFeatureChange = (value: string) => {
     setFeature(value);
-    const slug = value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-    setBranch(`feat/${slug}`);
+    setBranch(`feat/${slugify(value)}`);
   };
 
   return (

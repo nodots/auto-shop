@@ -8,6 +8,7 @@ import dashboardRouter from './routes/dashboard.js';
 import mergeQueueRouter from './routes/mergeQueue.js';
 import gitRouter from './routes/git.js';
 import schedulerRouter from './routes/scheduler.js';
+import issuesRouter from './routes/issues.js';
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '3400', 10);
@@ -22,6 +23,7 @@ app.use('/api/dashboard', dashboardRouter);
 app.use('/api/merge-queue', mergeQueueRouter);
 app.use('/api/git', gitRouter);
 app.use('/api/scheduler', schedulerRouter);
+app.use('/api/issues', issuesRouter);
 
 // Health check
 app.get('/api/health', (_req, res) => {

@@ -52,6 +52,15 @@ export const reorderMergeQueue = (order: { id: number; position: number }[]) =>
 export const removeFromMergeQueue = (id: number) =>
   fetchJson<{ deleted: MergeQueueRow }>(`/merge-queue/${id}`, { method: 'DELETE' });
 
+// Issues
+export const fetchOpenIssues = (params?: { project?: string; refresh?: boolean }) => {
+  const qs = new URLSearchParams();
+  if (params?.project) qs.set('project', params.project);
+  if (params?.refresh) qs.set('refresh', 'true');
+  const query = qs.toString();
+  return fetchJson<GitHubIssue[]>(`/issues${query ? '?' + query : ''}`);
+};
+
 // Scheduler
 export const fetchSchedulerStatus = () => fetchJson<SchedulerStatus>('/scheduler/status');
 export const pauseScheduler = () => fetchJson<{ paused: boolean }>('/scheduler/pause', { method: 'POST' });
@@ -163,6 +172,22 @@ export interface SchedulerStatus {
   queue: SchedulerQueueItem[];
   queueSize: number;
   completed: SchedulerCompleted[];
+}
+
+export interface GitHubIssue {
+  id: number;
+  number: number;
+  title: string;
+  labels: string[];
+  repo: string;
+  project: string;
+  html_url: string;
+  created_at: string;
+  updated_at: string;
+  user: string;
+  assignee: string | null;
+  comments: number;
+  inCell: boolean;
 }
 
 export interface MergeQueueRow {

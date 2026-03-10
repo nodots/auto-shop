@@ -8,6 +8,7 @@ import Container from '@mui/material/Container';
 import Box from '@mui/material/Box';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
+import { alpha, useTheme } from '@mui/material/styles';
 import { useThemeMode } from '../ThemeContext';
 
 const navItems = [
@@ -20,15 +21,60 @@ const navItems = [
 
 export default function Layout() {
   const { mode, toggleMode } = useThemeMode();
+  const theme = useTheme();
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-      <AppBar position="static">
-        <Toolbar>
-          <Typography variant="h6" sx={{ flexGrow: 0, mr: 4, fontWeight: 'bold' }}>
-            auto-shop
-          </Typography>
-          <Box sx={{ display: 'flex', gap: 0.5, flexGrow: 1 }}>
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        minHeight: '100vh',
+        background:
+          mode === 'dark'
+            ? `radial-gradient(circle at top left, ${alpha('#38bdf8', 0.18)}, transparent 32%), radial-gradient(circle at top right, ${alpha('#f97316', 0.14)}, transparent 28%), linear-gradient(180deg, ${theme.palette.background.default} 0%, #020817 100%)`
+            : `radial-gradient(circle at top left, ${alpha('#0ea5e9', 0.14)}, transparent 32%), radial-gradient(circle at top right, ${alpha('#f97316', 0.16)}, transparent 28%), linear-gradient(180deg, ${theme.palette.background.default} 0%, #f8fafc 100%)`,
+      }}
+    >
+      <AppBar
+        position="sticky"
+        elevation={0}
+        color="transparent"
+        sx={{
+          backdropFilter: 'blur(12px)',
+          borderBottom: `1px solid ${alpha(
+            mode === 'dark' ? '#cbd5e1' : '#0f172a',
+            mode === 'dark' ? 0.12 : 0.08
+          )}`,
+        }}
+      >
+        <Toolbar sx={{ gap: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, mr: 2 }}>
+            <Box
+              sx={{
+                width: 12,
+                height: 12,
+                borderRadius: '999px',
+                background: 'linear-gradient(135deg, #0ea5e9, #f97316)',
+                boxShadow: '0 0 0 6px rgba(14,165,233,0.12)',
+              }}
+            />
+            <Box>
+              <Typography variant="h6" sx={{ lineHeight: 1, fontWeight: 800, letterSpacing: '-0.04em' }}>
+                auto-shop
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                coordinator console
+              </Typography>
+            </Box>
+          </Box>
+          <Box
+            sx={{
+              display: 'flex',
+              gap: 0.75,
+              flexGrow: 1,
+              flexWrap: 'wrap',
+            }}
+          >
             {navItems.map((item) => (
               <Button
                 key={item.to}
@@ -36,10 +82,15 @@ export default function Layout() {
                 to={item.to}
                 end={item.to === '/' ? true : undefined}
                 sx={{
-                  color: 'inherit',
+                  color: 'text.primary',
                   textTransform: 'none',
+                  borderRadius: '999px',
+                  px: 1.5,
                   '&.active': {
-                    backgroundColor: 'rgba(255,255,255,0.15)',
+                    backgroundColor: alpha(
+                      theme.palette.text.primary,
+                      mode === 'dark' ? 0.12 : 0.08
+                    ),
                   },
                 }}
               >
@@ -47,12 +98,12 @@ export default function Layout() {
               </Button>
             ))}
           </Box>
-          <IconButton color="inherit" onClick={toggleMode} aria-label="Toggle dark mode">
+          <IconButton color="default" onClick={toggleMode} aria-label="Toggle dark mode">
             {mode === 'light' ? <DarkModeIcon /> : <LightModeIcon />}
           </IconButton>
         </Toolbar>
       </AppBar>
-      <Container maxWidth="lg" sx={{ flex: 1, py: 3 }}>
+      <Container maxWidth="xl" sx={{ flex: 1, py: 3 }}>
         <Outlet />
       </Container>
     </Box>

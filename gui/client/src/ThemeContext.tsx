@@ -34,7 +34,31 @@ export function ThemeModeProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  const theme = useMemo(() => createTheme({ palette: { mode } }), [mode]);
+  const theme = useMemo(
+    () =>
+      createTheme({
+        palette: {
+          mode,
+          ...(mode === 'dark'
+            ? {
+                background: {
+                  default: '#07111f',
+                  paper: '#0d1726',
+                },
+              }
+            : {
+                background: {
+                  default: '#eef3f8',
+                  paper: '#ffffff',
+                },
+              }),
+        },
+        typography: {
+          fontFamily: '"Avenir Next", "Segoe UI", sans-serif',
+        },
+      }),
+    [mode]
+  );
 
   return (
     <ThemeModeContext.Provider value={{ mode, toggleMode }}>

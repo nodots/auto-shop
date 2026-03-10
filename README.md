@@ -153,6 +153,28 @@ See **[coordinator-workflow.md](docs/coordinator-workflow.md)** for detailed che
 
 ---
 
+## CLI Workflows
+
+`auto-shop` includes a small coordinator CLI in [`bin/auto-shop`](bin/auto-shop).
+
+Common issue-driven commands:
+
+```bash
+# Start a feature implementation session from a GitHub issue
+./bin/auto-shop launch nodots/PoslunsLaw#352
+
+# Generate, but do not launch, the implementation prompt
+./bin/auto-shop prompt nodots/PoslunsLaw#352 --clipboard
+
+# Audit open issues against the current code and get a close/modify/open checklist
+./bin/auto-shop audit a2z-freight-claims --state=open --limit=50
+
+# Generate the issue-audit prompt without launching Claude
+./bin/auto-shop issues prompt nodots/PoslunsLaw --state=open --limit=25
+```
+
+---
+
 ## Capacity Management
 
 - **1–2 cells**: Very safe

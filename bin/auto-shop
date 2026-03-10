@@ -16,6 +16,9 @@
  *   auto-shop infra setup <project>   Set up Claude Code hooks via project registry
  *   auto-shop prompt <issue-ref>     Generate agent prompt for a GitHub issue
  *   auto-shop launch <issue-ref>    Generate prompt and launch remote session
+ *   auto-shop issues prompt <target> Generate prompt to audit GitHub issues vs code
+ *   auto-shop issues audit <target>  Launch remote audit session for a repo/project
+ *   auto-shop audit <target>         Alias for issue/code audit launch
  *   auto-shop help                    Show help
  */
 
@@ -519,6 +522,34 @@ function slugify(text) {
     .replace(/^-+|-+$/g, '');
 }
 
+function resolveProjectOrRepo(target) {
+  if (!target) {
+    return null;
+  }
+
+  const projects = loadProjects();
+  if (projects[target]) {
+    const proj = projects[target];
+    return {
+      projectName: target,
+      repo: proj.repo,
+      localPath: proj.localPath,
+    };
+  }
+
+  const match = findProjectByRepo(target);
+  if (match) {
+    return {
+      projectName: Object.entries(projects).find(([, proj]) => proj === match.project)?.[0] || target,
+      repo: target,
+      localPath: match.localPath,
+      packageName: match.package || null,
+    };
+  }
+
+  return null;
+}
+
 function buildPrompt(issueRef) {
   const parsed = parseIssueRef(issueRef);
   if (!parsed) {
@@ -629,6 +660,87 @@ function launch(issueRef) {
     });
   } catch (err) {
     error(`Remote session failed: ${err.message}`);
+  }
+}
+
+function buildIssueAuditPrompt(target) {
+  const resolved = resolveProjectOrRepo(target);
+  if (!resolved) {
+    error(
+      `Unknown project or repo: ${target}\n\nExpected a projects.json key or owner/repo.\nRun: auto-shop project list`
+    );
+  }
+
+  const flags = parseFlags(process.argv);
+  const issueState = flags.state || 'open';
+  const issueLimit = flags.limit || '50';
+  const templatePath = path.join(REPO_ROOT, 'templates', 'issue-audit.template.md');
+
+  if (!fs.existsSync(templatePath)) {
+    error(`Template not found: ${templatePath}`);
+  }
+
+  let template = fs.readFileSync(templatePath, 'utf8');
+  template = template.replace(/\[PROJECT_NAME\]/g, resolved.projectName || '(unregistered)');
+  template = template.replace(/\[REPO\]/g, resolved.repo);
+  template = template.replace(/\[LOCAL_PATH\]/g, resolved.localPath);
+  template = template.replace(/\[ISSUE_STATE\]/g, issueState);
+  template = template.replace(/\[ISSUE_LIMIT\]/g, issueLimit);
+  template = template.replace(/\[PACKAGE_NAME\]/g, resolved.packageName || '');
+
+  return { prompt: template, resolved, issueState, issueLimit };
+}
+
+function issuesPrompt(target) {
+  if (!target) {
+    error(
+      'Usage: auto-shop issues prompt <project-or-repo> [--state=open] [--limit=50] [--clipboard]'
+    );
+  }
+
+  const { prompt } = buildIssueAuditPrompt(target);
+  process.stdout.write(prompt);
+
+  if (process.argv.includes('--clipboard')) {
+    try {
+      execSync('pbcopy', { input: prompt, stdio: ['pipe', 'pipe', 'pipe'] });
+      process.stderr.write('\n(Copied to clipboard)\n');
+    } catch {
+      process.stderr.write('\n(Failed to copy to clipboard — pbcopy not available)\n');
+    }
+  }
+}
+
+function issuesAudit(target) {
+  if (!target) {
+    error('Usage: auto-shop issues audit <project-or-repo> [--state=open] [--limit=50]');
+  }
+
+  const { prompt, resolved, issueState, issueLimit } = buildIssueAuditPrompt(target);
+
+  if (!fs.existsSync(resolved.localPath)) {
+    error(`Local path does not exist: ${resolved.localPath}`);
+  }
+
+  info(`Project: ${resolved.projectName}`);
+  info(`Repo:    ${resolved.repo}`);
+  info(`Path:    ${resolved.localPath}`);
+  info(`Issues:  state=${issueState}, limit=${issueLimit}`);
+  log('');
+
+  const tmpPrompt = path.join(require('os').tmpdir(), `auto-shop-issue-audit-${slugify(resolved.repo)}.md`);
+  fs.writeFileSync(tmpPrompt, prompt);
+  info(`Prompt: ${tmpPrompt}`);
+  log('');
+
+  try {
+    execSync(`claude --remote "$(cat "${tmpPrompt}")"`, {
+      cwd: resolved.localPath,
+      stdio: 'inherit',
+      shell: true,
+    });
+  } catch (err) {
+    error(`Remote audit session failed: ${err.message}`);
   }
 }
 
@@ -811,6 +923,23 @@ COMMANDS:
                           - Runs claude --remote from the correct directory
                           - Works from any directory
 
+  audit <target>          Alias for issues audit
+                          - Same behavior as: auto-shop issues audit <target>
+                          - Supports --state and --limit
+
+  issues prompt <target>  Generate a prompt to audit GitHub issues vs code
+                          - <target> is a project key or owner/repo
+                          - Uses a purpose-built issue-audit template
+                          - Guides Claude to return close/modify/leave-open
+                          --state:     GitHub issue state to inspect (default: open)
+                          --limit:     Max issues to inspect (default: 50)
+                          --clipboard: Copy prompt to system clipboard
+
+  issues audit <target>   Launch a remote session for issue/code audit
+                          - Resolves local path from projects.json
+                          - Runs claude --remote in the target repo
+                          - Uses the same --state and --limit flags as prompt
+
   scheduler start         Start the scheduler daemon
                           - Polls all repos for claude-ready issues every 5 min
                           - Maintains up to 4 concurrent claude --remote sessions
@@ -837,6 +966,9 @@ EXAMPLES:
   auto-shop prompt nodots/ai-calc-tutor-mvp#1
   auto-shop prompt https://github.com/nodots/ai-calc-tutor-mvp/issues/1 --clipboard
   auto-shop launch nodots/PoslunsLaw#302
+  auto-shop audit a2z-freight-claims --state=open --limit=50
+  auto-shop issues prompt a2z-freight-claims --state=open --limit=25
+  auto-shop issues audit nodots/PoslunsLaw --state=open --limit=50
 
 DOCUMENTATION:
   See docs/coordinator-workflow.md for detailed instructions
@@ -897,6 +1029,20 @@ switch (command) {
 
   case 'launch':
     launch(arg1);
+    break;
+
+  case 'audit':
+    issuesAudit(arg1);
+    break;
+
+  case 'issues':
+    if (arg1 === 'prompt') {
+      issuesPrompt(arg2);
+    } else if (arg1 === 'audit') {
+      issuesAudit(arg2);
+    } else {
+      error('Usage: auto-shop issues <prompt|audit> <project-or-repo>');
+    }
     break;
 
   case 'scheduler':

@@ -1,80 +1,72 @@
-# Handoff: Add web GUI for coordinator workflow management
+# Handoff: Integrate auto-shop with Slack for cell notifications and coordinator commands
 
-Date: 2026-03-07
+Date: 2026-03-11
 Status: complete
-Branch: claude/add-web-gui-coordinator-Kyizj
-Issue: https://github.com/nodots/auto-shop/issues/29
+Branch: feat/integrate-auto-shop-with-slack-for-cell-notifications-and-coordinator-commands
+Issue: https://github.com/nodots/auto-shop/issues/25
 
 ## What Was Done
 
-- Created `gui/` directory with Express + TypeScript API server and React + TypeScript (Vite) client
-- **Server** (`gui/server/`):
-  - Express API on port 3400 with CORS support
-  - PostgreSQL schema: `projects`, `packages`, `cells`, `cell_status_history`, `merge_queue` tables
-  - Routes: `/api/projects` (list, sync from projects.json, raw read), `/api/cells` (CRUD, status transitions, filtering), `/api/dashboard` (aggregated data), `/api/merge-queue` (ordered queue with reordering), `/api/git` (read files from branches via `git show`, list feature branches), `/api/health`
-  - Graceful degradation when database is unavailable
-  - Serves built client in production mode
-- **Client** (`gui/client/`):
-  - Vite dev server on port 5473 with API proxy to Express
-  - Dashboard page: capacity gauge (0-4 active cells), status counts with links, blocked cell alerts, ready PRs list, recent activity timeline
-  - Cells list page: filterable by status, sortable table
-  - Cell detail page: scope/blocker/handoff/history tabs, status transition buttons with optional notes, delete (teardown)
-  - Cell creation form: auto-generates branch name from feature, project selector from projects.json
-  - Projects page: displays all projects from projects.json with packages, sync-to-DB button
-  - Merge queue page: ordered list with up/down reordering and remove buttons
-  - Tailwind CSS styling, responsive layout
-  - TanStack React Query for data fetching with cache invalidation
+- **Phase 1 — GitHub Actions to Slack:**
+  - `slack-label-change.yml`: Notifies `#auto-shop-cells` on cell status label changes; alerts `#auto-shop-alerts` when a cell is blocked
+  - `slack-pr-events.yml`: Notifies on PR open/close/merge/ready-for-review; alerts on `[READY]` PRs
+  - `slack-stale-cells.yml`: Daily cron (9 AM UTC) flags cells active >3 days to `#auto-shop-alerts`
+  - `feature-ci.yml`: Added `notify-slack` job that posts to `#auto-shop-alerts` on CI failure
+
+- **Phase 2 — Claude Code Hooks to Slack:**
+  - `notify-slack-posttooluse.sh`: Async PostToolUse hook that detects BLOCKER.md/HANDOFF.md writes and sends Slack alerts
+  - `enforce-scope-pretooluse.js`: Added fire-and-forget Slack notification on scope violations
+  - `setup-claude-infra.sh`: Updated to copy new hook and add PostToolUse config to generated settings.json
+
+- **Phase 3 — Slack Bot:**
+  - Cloudflare Worker-based bot at `scripts/slack-bot/`
+  - `/autoshop status` — unified cell status overview
+  - `/autoshop cells` — grouped cell list
+  - `/autoshop blocked` — blocked cells only
+  - `/autoshop approve <pr>` — approve with confirmation
+  - `/autoshop merge <pr>` — squash-merge with double confirmation
+  - HMAC-SHA256 request signature verification
+  - GitHub REST API client (no gh CLI dependency)
+
+- **Phase 4 — Rich Formatting:**
+  - Block Kit used throughout all notifications and command responses
+  - Action buttons on messages (View PR, Review PR, View Issue, View Run)
+  - Confirmation dialogs for destructive operations
+
+- **Documentation:**
+  - `docs/slack-integration.md` covering full setup, channels, commands, and troubleshooting
 
 ## Key Decisions
 
-- **All code under `gui/`**: No modifications to existing files, as specified in the issue
-- **Filesystem + GitHub remain source of truth**: DB is a cache/sync layer; `/api/projects/raw` reads directly from `projects.json`
-- **No @dnd-kit or @monaco-editor**: Used simpler up/down buttons for queue reordering and `<pre>` for scope JSON display to keep the initial implementation focused. These can be added in Phase 4-5.
-- **No @octokit/rest integration yet**: Listed as a dependency in the issue but not wired up in Phase 1. The git routes use `git show` for local branch inspection.
-- **Graceful DB degradation**: Server starts even without PostgreSQL, logging a warning. API routes that need the DB will return errors, but `/api/projects/raw` and `/api/git/*` work without DB.
+- Used incoming webhooks (not Slack API posts) for GitHub Actions notifications — simpler, no bot token needed for workflows
+- Slack bot uses native fetch + crypto.subtle instead of @slack/bolt framework — better fit for Cloudflare Workers which have limited Node.js compatibility
+- All webhook hooks are fire-and-forget with short timeouts to never block agent work
+- Destructive commands (approve, merge) require interactive confirmation buttons rather than direct execution
 
 ## Files Modified
 
-All new files under `gui/` — no existing files were modified.
-
-| Path | Purpose |
-|------|---------|
-| `gui/.gitignore` | Ignore node_modules, dist, tsbuildinfo |
-| `gui/server/package.json` | Server dependencies and scripts |
-| `gui/server/tsconfig.json` | TypeScript config for server |
-| `gui/server/src/index.ts` | Express app entry point |
-| `gui/server/src/db.ts` | PostgreSQL pool and schema initialization |
-| `gui/server/src/routes/projects.ts` | Project list, sync, and raw read routes |
-| `gui/server/src/routes/cells.ts` | Cell CRUD and status transitions |
-| `gui/server/src/routes/dashboard.ts` | Aggregated dashboard data |
-| `gui/server/src/routes/mergeQueue.ts` | Merge queue management |
-| `gui/server/src/routes/git.ts` | Git file read and branch listing |
-| `gui/client/package.json` | Client dependencies and scripts |
-| `gui/client/tsconfig.json` | TypeScript config for client |
-| `gui/client/vite.config.ts` | Vite config with API proxy |
-| `gui/client/tailwind.config.js` | Tailwind CSS config |
-| `gui/client/postcss.config.js` | PostCSS config for Tailwind |
-| `gui/client/index.html` | HTML entry point |
-| `gui/client/src/main.tsx` | React app entry with routing |
-| `gui/client/src/index.css` | Tailwind directives |
-| `gui/client/src/api.ts` | API client with TypeScript types |
-| `gui/client/src/components/Layout.tsx` | App shell with navigation |
-| `gui/client/src/components/StatusBadge.tsx` | Colored status badge component |
-| `gui/client/src/pages/Dashboard.tsx` | Dashboard with capacity, alerts, activity |
-| `gui/client/src/pages/CellsList.tsx` | Filterable cells table |
-| `gui/client/src/pages/CellDetail.tsx` | Cell detail with tabs and transitions |
-| `gui/client/src/pages/CellCreate.tsx` | Cell creation form |
-| `gui/client/src/pages/Projects.tsx` | Project registry display |
-| `gui/client/src/pages/MergeQueue.tsx` | Ordered merge queue |
+| File | Change |
+|------|--------|
+| `.github/workflows/slack-label-change.yml` | New — cell status label notifications |
+| `.github/workflows/slack-pr-events.yml` | New — PR event notifications |
+| `.github/workflows/slack-stale-cells.yml` | New — daily stale cell cron |
+| `.github/workflows/feature-ci.yml` | Modified — added notify-slack job on failure |
+| `scripts/hooks/notify-slack-posttooluse.sh` | New — PostToolUse hook for BLOCKER/HANDOFF detection |
+| `scripts/hooks/enforce-scope-pretooluse.js` | Modified — added Slack notification on scope violation |
+| `scripts/setup-claude-infra.sh` | Modified — copies new hook, adds PostToolUse config |
+| `scripts/slack-bot/` | New — Slack bot (index.ts, commands.ts, actions.ts, github.ts) |
+| `docs/slack-integration.md` | New — setup and usage documentation |
+| `SCOPE.json` | Modified — added allowedPaths for this feature |
 
 ## Test Status
 
-- Server TypeScript compiles cleanly (`tsc --noEmit`)
-- Client TypeScript compiles cleanly (`tsc --noEmit`)
-- Client production build succeeds (`vite build`)
-- No test framework configured (project is documentation/coordination — no existing test infrastructure)
+- No test framework in this repository (coordination/documentation repo)
+- All shell scripts have `set -euo pipefail` and graceful degradation when secrets are missing
+- TypeScript in slack-bot compiles with strict mode
 
 ## Notes
 
-- The issue specifies 5 implementation phases. This PR covers Phase 1 (Foundation) and Phase 2-3 core features (cell detail, creation, status transitions). Phases 4-5 (drag-and-drop, Monaco editor, GitHub API integration, session checklists, mobile polish) can be follow-up work.
-- To run locally: `cd gui/server && npm run dev` and `cd gui/client && npm run dev`. Requires PostgreSQL with a `auto_shop_gui` database (or set `DATABASE_URL`).
+- Slack app must be created manually (cannot be automated via code). See docs/slack-integration.md for step-by-step setup.
+- `SLACK_WEBHOOK_CELLS` and `SLACK_WEBHOOK_ALERTS` GitHub secrets must be configured before workflows will send notifications. Workflows skip gracefully if secrets are absent.
+- For `--remote` sessions, `hooks.slack.com` must be added to the network allowlist.
+- The `/autoshop launch <name>` command mentioned in the issue (via workflow_dispatch) was not implemented — it would require a separate GitHub Actions workflow for cell provisioning which is out of scope for the Slack integration.

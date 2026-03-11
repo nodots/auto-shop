@@ -21,6 +21,8 @@ import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import IconButton from '@mui/material/IconButton';
 import Divider from '@mui/material/Divider';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import Switch from '@mui/material/Switch';
 import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded';
 import LaunchRoundedIcon from '@mui/icons-material/LaunchRounded';
 import RefreshRoundedIcon from '@mui/icons-material/RefreshRounded';
@@ -81,6 +83,7 @@ export default function ShopFloor() {
   const [selectedProject, setSelectedProject] = useState('');
   const [search, setSearch] = useState('');
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [hideEpics, setHideEpics] = useState(true);
 
   const shopFloorQuery = useQuery({
     queryKey: ['shop-floor'],
@@ -93,8 +96,8 @@ export default function ShopFloor() {
   });
 
   const repairOrdersQuery = useQuery({
-    queryKey: ['repair-orders'],
-    queryFn: () => fetchRepairOrders(),
+    queryKey: ['repair-orders', { hideEpics }],
+    queryFn: () => fetchRepairOrders(hideEpics ? { excludeLabels: ['epic'] } : undefined),
     staleTime: 300_000,
   });
 
@@ -511,6 +514,17 @@ export default function ShopFloor() {
               Live repair-order view with the current account filter baked in.
             </Typography>
           </Box>
+          <FormControlLabel
+            control={
+              <Switch
+                checked={hideEpics}
+                onChange={(event) => setHideEpics(event.target.checked)}
+                size="small"
+              />
+            }
+            label="Hide epics"
+            sx={{ mr: 0 }}
+          />
           <TextField
             size="small"
             placeholder="Search title, repo, label"

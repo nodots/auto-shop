@@ -64,6 +64,10 @@ router.get('/', async (req, res) => {
 
   const projectFilter = (req.query.account || req.query.project) as string | undefined;
   const forceRefresh = req.query.refresh === 'true';
+  const excludeLabelsParam = req.query.excludeLabels as string | undefined;
+  const excludeLabels = excludeLabelsParam
+    ? excludeLabelsParam.split(',').map((l) => l.trim().toLowerCase()).filter(Boolean)
+    : [];
 
   try {
     const repoMap = loadRepoMap();
@@ -141,10 +145,17 @@ router.get('/', async (req, res) => {
       // DB may not be available; skip cross-reference
     }
 
-    // Sort by updated_at descending
-    allIssues.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
+    // Filter out issues matching excluded labels
+    const filtered = excludeLabels.length > 0
+      ? allIssues.filter((issue) =>
+          !issue.labels.some((label) => excludeLabels.includes(label.toLowerCase()))
+        )
+      : allIssues;
 
-    res.json(allIssues);
+    // Sort by updated_at descending
+    filtered.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
+
+    res.json(filtered);
   } catch (err) {
     res.status(500).json({ error: String(err) });
   }

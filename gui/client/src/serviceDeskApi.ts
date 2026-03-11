@@ -53,10 +53,11 @@ export const removeFromReleaseLane = (id: number) =>
   fetchJson<{ deleted: ReleaseLaneRow }>(`/release-lane/${id}`, { method: 'DELETE' });
 
 // Repair orders
-export const fetchRepairOrders = (params?: { account?: string; refresh?: boolean }) => {
+export const fetchRepairOrders = (params?: { account?: string; refresh?: boolean; excludeLabels?: string[] }) => {
   const qs = new URLSearchParams();
   if (params?.account) qs.set('account', params.account);
   if (params?.refresh) qs.set('refresh', 'true');
+  if (params?.excludeLabels && params.excludeLabels.length > 0) qs.set('excludeLabels', params.excludeLabels.join(','));
   const query = qs.toString();
   return fetchJson<RepairOrder[]>(`/repair-orders${query ? '?' + query : ''}`);
 };

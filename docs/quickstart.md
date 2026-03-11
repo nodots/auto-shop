@@ -106,10 +106,11 @@ git checkout -b feat/first-feature
 Copy the template and fill it in:
 
 ```bash
-cp templates/SCOPE.json SCOPE.json
+mkdir -p .auto-shop/cells/feat/first-feature
+cp templates/SCOPE.json .auto-shop/cells/feat/first-feature/SCOPE.json
 ```
 
-Edit `SCOPE.json`:
+Edit `.auto-shop/cells/feat/first-feature/SCOPE.json`:
 ```json
 {
   "feature": "first-feature",
@@ -133,7 +134,7 @@ Edit `SCOPE.json`:
 
 Commit:
 ```bash
-git add SCOPE.json
+git add .auto-shop/cells/feat/first-feature/SCOPE.json
 git commit -m "Add SCOPE.json for feat/first-feature"
 ```
 
@@ -209,10 +210,10 @@ git checkout -- package.json
 
 Copy the template:
 ```bash
-cp templates/HANDOFF.md HANDOFF.md
+cp templates/HANDOFF.md .auto-shop/cells/feat/first-feature/HANDOFF.md
 ```
 
-Edit `HANDOFF.md`:
+Edit `.auto-shop/cells/feat/first-feature/HANDOFF.md`:
 ```markdown
 # Handoff: First Feature
 
@@ -240,7 +241,7 @@ Not applicable — feature is complete.
 
 Commit:
 ```bash
-git add HANDOFF.md
+git add .auto-shop/cells/feat/first-feature/HANDOFF.md
 git commit -m "Add HANDOFF.md for feat/first-feature"
 ```
 

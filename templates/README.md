@@ -7,7 +7,7 @@ Standard, reusable templates for feature cells and coordination work.
 ### SCOPE.json.template
 **When to use:** Starting a new feature cell
 
-The scope manifest defines what files an agent can and cannot modify. Copy this template, fill in the placeholders, and commit as `SCOPE.json` on the feature branch.
+The scope manifest defines what files an agent can and cannot modify. Copy this template, fill in the placeholders, and commit it as `.auto-shop/cells/<branch>/SCOPE.json` on the feature branch.
 
 **Key sections:**
 - `feature`: Feature name (e.g., "keyboard-navigation")
@@ -147,9 +147,10 @@ Pre-filled SCOPE.json template for a2z-freight-claims.
 
 1. **Starting a feature cell:**
    ```bash
-   cp templates/SCOPE.json.template SCOPE.json
-   # Edit SCOPE.json with feature-specific paths
-   git add SCOPE.json && git commit -m "Add SCOPE.json for feat/feature-name"
+   mkdir -p .auto-shop/cells/feat/feature-name
+   cp templates/SCOPE.json .auto-shop/cells/feat/feature-name/SCOPE.json
+   # Edit the copied SCOPE.json with feature-specific paths
+   git add .auto-shop/cells/feat/feature-name/SCOPE.json && git commit -m "Add SCOPE.json for feat/feature-name"
    ```
 
 2. **Starting an agent session:**

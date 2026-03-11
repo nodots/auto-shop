@@ -33,8 +33,9 @@ jobs:
 
       - name: Scope manifest present
         run: |
-          if [ ! -f SCOPE.json ]; then
-            echo "❌ SCOPE.json missing from feature branch"
+          SCOPE_PATH="$(node scripts/hooks/resolve-cell-artifact.js path scope "$PWD")"
+          if [ ! -f "$SCOPE_PATH" ]; then
+            echo "❌ Scope manifest missing from feature branch ($SCOPE_PATH)"
             exit 1
           fi
 

@@ -18,7 +18,7 @@ For detailed architecture: **[Implementation Plan](docs/ai-dev-scaling-plan.md)*
 ### How It Works
 
 1. **Repair Bay** — One technician, one job, one branch, one scoped environment
-2. **Repair Plan** (SCOPE.json) — Declares exactly which files the technician can modify
+2. **Repair Plan** (`.auto-shop/cells/<branch>/SCOPE.json`) — Declares exactly which files the technician can modify
 3. **Pre-Commit Hook** — Prevents commits outside the scope
 4. **Async Coordination** — Two 30-minute sessions per day manages 4 concurrent bays
 5. **Contract Freezing** — Shared interfaces change via dedicated contract-change bays
@@ -50,10 +50,17 @@ For detailed architecture: **[Implementation Plan](docs/ai-dev-scaling-plan.md)*
 
 ```
 auto-shop/
+├── .auto-shop/
+│   └── cells/
+│       └── feat/
+│           └── my-feature/
+│               ├── SCOPE.json
+│               ├── HANDOFF.md
+│               └── BLOCKER.md
 ├── CLAUDE.md                          # Agent & coordinator instructions
 ├── ISSUES_CREATED.md                  # GitHub issues tracking implementation
 ├── templates/                         # Reusable templates
-│   ├── SCOPE.json.template
+│   ├── SCOPE.json
 │   ├── SCOPE-{project}.template.json
 │   ├── agent-prompt.template.md
 │   ├── BLOCKER.md.template

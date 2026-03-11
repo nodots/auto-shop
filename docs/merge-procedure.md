@@ -26,7 +26,7 @@ Before merging **any** cell, verify:
 
 - [ ] GitHub PR has `[READY]` prefix in title
 - [ ] All CI checks passing (green checkmarks)
-- [ ] HANDOFF.md is complete and clear
+- [ ] Branch handoff file is complete and clear
 - [ ] No newer dependencies have been merged that might affect this cell
 - [ ] All `blockedBy` dependencies are already merged to main
 - [ ] No merge conflicts will occur (CI integration check should verify this)
@@ -93,7 +93,7 @@ When a package changes, you must test the changed package **and** every package 
 
 **3a. Identify which package(s) the cell modified:**
 ```bash
-# From SCOPE.json allowedPaths, or from the diff:
+# From the branch scope manifest allowedPaths, or from the diff:
 git diff origin/main --name-only
 # Look at the top-level directory of changed files to determine the package(s)
 ```
@@ -400,7 +400,7 @@ Before every merge:
 - [ ] All CI checks passing
 - [ ] Dependencies merged (if any)
 - [ ] Tests passing locally (changed package + all packages that import it)
-- [ ] HANDOFF.md complete
+- [ ] Branch handoff file complete
 - [ ] MERGE_QUEUE.md prepared
 
 During merge:

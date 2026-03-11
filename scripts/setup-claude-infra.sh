@@ -94,6 +94,9 @@ echo "Copying hook scripts..."
 cp "$AUTO_SHOP_ROOT/scripts/hooks/enforce-scope-pretooluse.js" \
    "$REPO_PATH/.claude/hooks/enforce-scope-pretooluse.js"
 
+cp "$AUTO_SHOP_ROOT/scripts/hooks/resolve-cell-artifact.js" \
+   "$REPO_PATH/.claude/hooks/resolve-cell-artifact.js"
+
 cp "$AUTO_SHOP_ROOT/scripts/hooks/check-handoff-on-complete.sh" \
    "$REPO_PATH/.claude/hooks/check-handoff-on-complete.sh"
 
@@ -103,6 +106,7 @@ cp "$AUTO_SHOP_ROOT/scripts/hooks/check-handoff-on-stop.sh" \
 cp "$AUTO_SHOP_ROOT/scripts/hooks/session-start-install-deps.sh" \
    "$REPO_PATH/.claude/hooks/session-start-install-deps.sh"
 
+chmod +x "$REPO_PATH/.claude/hooks/resolve-cell-artifact.js"
 chmod +x "$REPO_PATH/.claude/hooks/check-handoff-on-complete.sh"
 chmod +x "$REPO_PATH/.claude/hooks/check-handoff-on-stop.sh"
 chmod +x "$REPO_PATH/.claude/hooks/session-start-install-deps.sh"
@@ -246,6 +250,7 @@ echo "Files created:"
 echo "  .claude/project.json"
 echo "  .claude/settings.json"
 echo "  .claude/hooks/enforce-scope-pretooluse.js"
+echo "  .claude/hooks/resolve-cell-artifact.js"
 echo "  .claude/hooks/check-handoff-on-complete.sh"
 echo "  .claude/hooks/check-handoff-on-stop.sh"
 echo "  .claude/hooks/session-start-install-deps.sh"

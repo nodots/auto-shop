@@ -11,6 +11,7 @@ export stop_hook_active=1
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 GIT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+RESOLVER="$SCRIPT_DIR/resolve-cell-artifact.js"
 
 # Only enforce on feature branches
 BRANCH=$(git -C "$GIT_ROOT" rev-parse --abbrev-ref HEAD 2>/dev/null)
@@ -19,7 +20,9 @@ if [[ ! "$BRANCH" =~ ^feat/ ]]; then
 fi
 
 # If HANDOFF.md or BLOCKER.md exists, allow
-if [[ -f "$GIT_ROOT/HANDOFF.md" ]] || [[ -f "$GIT_ROOT/BLOCKER.md" ]]; then
+HANDOFF_PATH="$(node "$RESOLVER" exists handoff "$GIT_ROOT" 2>/dev/null || true)"
+BLOCKER_PATH="$(node "$RESOLVER" exists blocker "$GIT_ROOT" 2>/dev/null || true)"
+if [[ -n "$HANDOFF_PATH" ]] || [[ -n "$BLOCKER_PATH" ]]; then
   exit 0
 fi
 
@@ -33,6 +36,11 @@ if [[ -z "$ALL_CHANGES" ]]; then
   exit 0
 fi
 
+HANDOFF_DEFAULT="$(node "$RESOLVER" path handoff "$GIT_ROOT")"
+BLOCKER_DEFAULT="$(node "$RESOLVER" path blocker "$GIT_ROOT")"
+HANDOFF_REL="${HANDOFF_DEFAULT#$GIT_ROOT/}"
+BLOCKER_REL="${BLOCKER_DEFAULT#$GIT_ROOT/}"
+
 echo "On feature branch $BRANCH with uncommitted changes but no HANDOFF.md or BLOCKER.md." >&2
-echo "Write HANDOFF.md (if complete/pausing) or BLOCKER.md (if blocked) before stopping." >&2
+echo "Write $HANDOFF_REL (if complete/pausing) or $BLOCKER_REL (if blocked) before stopping." >&2
 exit 2

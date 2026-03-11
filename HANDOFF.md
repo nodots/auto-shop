@@ -1,80 +1,40 @@
-# Handoff: Add web GUI for coordinator workflow management
+# Handoff: Exclude epics from the main workflow board by default
 
-Date: 2026-03-07
+Date: 2026-03-11
 Status: complete
-Branch: claude/add-web-gui-coordinator-Kyizj
-Issue: https://github.com/nodots/auto-shop/issues/29
+Branch: feat/exclude-epics-from-the-main-workflow-board-by-default
+Issue: https://github.com/nodots/auto-shop/issues/38
 
 ## What Was Done
 
-- Created `gui/` directory with Express + TypeScript API server and React + TypeScript (Vite) client
-- **Server** (`gui/server/`):
-  - Express API on port 3400 with CORS support
-  - PostgreSQL schema: `projects`, `packages`, `cells`, `cell_status_history`, `merge_queue` tables
-  - Routes: `/api/projects` (list, sync from projects.json, raw read), `/api/cells` (CRUD, status transitions, filtering), `/api/dashboard` (aggregated data), `/api/merge-queue` (ordered queue with reordering), `/api/git` (read files from branches via `git show`, list feature branches), `/api/health`
-  - Graceful degradation when database is unavailable
-  - Serves built client in production mode
-- **Client** (`gui/client/`):
-  - Vite dev server on port 5473 with API proxy to Express
-  - Dashboard page: capacity gauge (0-4 active cells), status counts with links, blocked cell alerts, ready PRs list, recent activity timeline
-  - Cells list page: filterable by status, sortable table
-  - Cell detail page: scope/blocker/handoff/history tabs, status transition buttons with optional notes, delete (teardown)
-  - Cell creation form: auto-generates branch name from feature, project selector from projects.json
-  - Projects page: displays all projects from projects.json with packages, sync-to-DB button
-  - Merge queue page: ordered list with up/down reordering and remove buttons
-  - Tailwind CSS styling, responsive layout
-  - TanStack React Query for data fetching with cache invalidation
+- Added `excludeLabels` query parameter to the `/api/repair-orders` endpoint, accepting a comma-separated list of label names to exclude
+- Server-side filtering removes issues whose labels match any excluded label (case-insensitive)
+- Added "Hide epics" toggle (Switch) to the ShopFloor Waiting Lot header, defaulting to on
+- The React Query key includes the `hideEpics` state so toggling triggers a fresh fetch
+- Updated `fetchRepairOrders` in the client API to pass `excludeLabels` when applicable
+- Bay Board counts and the "Jobs Ready" metric automatically reflect the filtered data since they derive from the same query
 
 ## Key Decisions
 
-- **All code under `gui/`**: No modifications to existing files, as specified in the issue
-- **Filesystem + GitHub remain source of truth**: DB is a cache/sync layer; `/api/projects/raw` reads directly from `projects.json`
-- **No @dnd-kit or @monaco-editor**: Used simpler up/down buttons for queue reordering and `<pre>` for scope JSON display to keep the initial implementation focused. These can be added in Phase 4-5.
-- **No @octokit/rest integration yet**: Listed as a dependency in the issue but not wired up in Phase 1. The git routes use `git show` for local branch inspection.
-- **Graceful DB degradation**: Server starts even without PostgreSQL, logging a warning. API routes that need the DB will return errors, but `/api/projects/raw` and `/api/git/*` work without DB.
+- Filtering is done server-side (after GitHub API fetch but before response) rather than client-side, so counts are consistent without extra logic
+- The `excludeLabels` param is generic (comma-separated label list) rather than a hard-coded `?hideEpics=true` flag, making it reusable for other label-based filters
+- The toggle defaults to on (epics hidden) per the issue requirements
 
 ## Files Modified
 
-All new files under `gui/` — no existing files were modified.
-
-| Path | Purpose |
-|------|---------|
-| `gui/.gitignore` | Ignore node_modules, dist, tsbuildinfo |
-| `gui/server/package.json` | Server dependencies and scripts |
-| `gui/server/tsconfig.json` | TypeScript config for server |
-| `gui/server/src/index.ts` | Express app entry point |
-| `gui/server/src/db.ts` | PostgreSQL pool and schema initialization |
-| `gui/server/src/routes/projects.ts` | Project list, sync, and raw read routes |
-| `gui/server/src/routes/cells.ts` | Cell CRUD and status transitions |
-| `gui/server/src/routes/dashboard.ts` | Aggregated dashboard data |
-| `gui/server/src/routes/mergeQueue.ts` | Merge queue management |
-| `gui/server/src/routes/git.ts` | Git file read and branch listing |
-| `gui/client/package.json` | Client dependencies and scripts |
-| `gui/client/tsconfig.json` | TypeScript config for client |
-| `gui/client/vite.config.ts` | Vite config with API proxy |
-| `gui/client/tailwind.config.js` | Tailwind CSS config |
-| `gui/client/postcss.config.js` | PostCSS config for Tailwind |
-| `gui/client/index.html` | HTML entry point |
-| `gui/client/src/main.tsx` | React app entry with routing |
-| `gui/client/src/index.css` | Tailwind directives |
-| `gui/client/src/api.ts` | API client with TypeScript types |
-| `gui/client/src/components/Layout.tsx` | App shell with navigation |
-| `gui/client/src/components/StatusBadge.tsx` | Colored status badge component |
-| `gui/client/src/pages/Dashboard.tsx` | Dashboard with capacity, alerts, activity |
-| `gui/client/src/pages/CellsList.tsx` | Filterable cells table |
-| `gui/client/src/pages/CellDetail.tsx` | Cell detail with tabs and transitions |
-| `gui/client/src/pages/CellCreate.tsx` | Cell creation form |
-| `gui/client/src/pages/Projects.tsx` | Project registry display |
-| `gui/client/src/pages/MergeQueue.tsx` | Ordered merge queue |
+| File | Change |
+|------|--------|
+| `gui/server/src/routes/repairOrders.ts` | Parse `excludeLabels` query param and filter issues before response |
+| `gui/client/src/serviceDeskApi.ts` | Add `excludeLabels` option to `fetchRepairOrders` params |
+| `gui/client/src/pages/ShopFloor.tsx` | Add `hideEpics` state (default true), toggle Switch in Waiting Lot, pass `excludeLabels` to query |
 
 ## Test Status
 
 - Server TypeScript compiles cleanly (`tsc --noEmit`)
 - Client TypeScript compiles cleanly (`tsc --noEmit`)
 - Client production build succeeds (`vite build`)
-- No test framework configured (project is documentation/coordination — no existing test infrastructure)
+- No test framework configured in the project
 
 ## Notes
 
-- The issue specifies 5 implementation phases. This PR covers Phase 1 (Foundation) and Phase 2-3 core features (cell detail, creation, status transitions). Phases 4-5 (drag-and-drop, Monaco editor, GitHub API integration, session checklists, mobile polish) can be follow-up work.
-- To run locally: `cd gui/server && npm run dev` and `cd gui/client && npm run dev`. Requires PostgreSQL with a `auto_shop_gui` database (or set `DATABASE_URL`).
+- The server caches GitHub API responses for 5 minutes. Toggling "Hide epics" triggers a new API call to the Express server, but the GitHub data may come from cache. The filtering happens after cache retrieval, so the toggle is responsive even with cached data.

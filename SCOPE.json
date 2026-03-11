@@ -1,7 +1,7 @@
 {
-  "feature": "Exclude epics from the main workflow board by default",
+  "feature": "Validate the end-to-end coordinator flow and remove remaining metaphor-first UX debt",
   "project": "auto-shop",
-  "branch": "feat/exclude-epics-from-the-main-workflow-board-by-default",
+  "branch": "feat/validate-the-end-to-end-coordinator-flow-and-remove-remaining-metaphor-first-ux-debt",
   "createdAt": "2026-03-11",
   "allowedPaths": [],
   "forbiddenPaths": [

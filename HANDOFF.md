@@ -70,3 +70,4 @@ Issue: https://github.com/nodots/auto-shop/issues/25
 - `SLACK_WEBHOOK_CELLS` and `SLACK_WEBHOOK_ALERTS` GitHub secrets must be configured before workflows will send notifications. Workflows skip gracefully if secrets are absent.
 - For `--remote` sessions, `hooks.slack.com` must be added to the network allowlist.
 - The `/autoshop launch <name>` command mentioned in the issue (via workflow_dispatch) was not implemented — it would require a separate GitHub Actions workflow for cell provisioning which is out of scope for the Slack integration.
+- Fixed: Removed phantom `@slack/bolt` and `slack-bolt-cloudflare-workers` dependencies from `scripts/slack-bot/package.json` (the bot uses native fetch + crypto.subtle, not the Slack SDK).

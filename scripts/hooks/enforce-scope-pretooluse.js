@@ -4,6 +4,10 @@
 const fs = require('fs');
 const path = require('path');
 const { minimatch } = require('minimatch');
+const {
+  getAllowedCoordinationPaths,
+  getArtifactPath,
+} = require('./resolve-cell-artifact.js');
 
 // Read hook input from stdin
 let input = '';
@@ -22,7 +26,7 @@ process.stdin.on('end', () => {
 
     // Find git root (two dirs up from .claude/hooks/)
     const gitRoot = path.resolve(__dirname, '..', '..');
-    const scopePath = path.join(gitRoot, 'SCOPE.json');
+    const scopePath = getArtifactPath(gitRoot, 'scope');
 
     // No SCOPE.json = no restriction (main branch, hotfix, etc.)
     if (!fs.existsSync(scopePath)) {
@@ -30,6 +34,7 @@ process.stdin.on('end', () => {
     }
 
     const scope = JSON.parse(fs.readFileSync(scopePath, 'utf8'));
+    const allowedCoordinationPaths = getAllowedCoordinationPaths(gitRoot);
 
     // Convert absolute path to relative from git root
     const relativePath = path.relative(gitRoot, filePath);
@@ -40,7 +45,7 @@ process.stdin.on('end', () => {
     }
 
     // Always allow coordination files
-    if (relativePath === 'SCOPE.json' || relativePath === 'BLOCKER.md' || relativePath === 'HANDOFF.md') {
+    if (allowedCoordinationPaths.has(relativePath)) {
       process.exit(0);
     }
 
@@ -50,8 +55,8 @@ process.stdin.on('end', () => {
 
     if (!allowed || forbidden) {
       process.stderr.write(
-        `Scope violation: ${relativePath} is outside SCOPE.json allowedPaths. ` +
-        `Write BLOCKER.md if you need to modify this file.`
+        `Scope violation: ${relativePath} is outside ${path.relative(gitRoot, scopePath)} allowedPaths. ` +
+        `Write ${path.relative(gitRoot, getArtifactPath(gitRoot, 'blocker', { preferExisting: false }))} if you need to modify this file.`
       );
       process.exit(2);
     }

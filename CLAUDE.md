@@ -12,25 +12,25 @@ The core idea: break complex multi-feature development into isolated "cells" (on
 
 **AI Dev Cell:** A bounded unit of work consisting of:
 - One feature branch
-- One scope manifest (`SCOPE.json`)
+- One scope manifest (`.auto-shop/cells/<branch>/SCOPE.json`)
 - One AI agent session
 - Strict boundaries on which files can be modified
 - Explicit stopping conditions
 
-**Scope Manifest (`SCOPE.json`):** Declarative definition of what an agent can and cannot touch, preventing conflicts and scope creep.
+**Scope Manifest (`.auto-shop/cells/<branch>/SCOPE.json`):** Declarative definition of what an agent can and cannot touch, preventing conflicts and scope creep.
 
 **Stopping Conditions:** Agents work to completion or a well-defined stopping condition, enabling async coordination without interruption.
 
 **Contracts Directory (`contracts/`):** Shared interfaces between packages are frozen documents, preventing silent API changes across concurrent features.
 
-**Context Handoff Files:** `BLOCKER.md` and `HANDOFF.md` bridge sessions and coordinate with the human.
+**Context Handoff Files:** `.auto-shop/cells/<branch>/BLOCKER.md` and `.auto-shop/cells/<branch>/HANDOFF.md` bridge sessions and coordinate with the human.
 
 ## Primary Use: Creating Feature Cells
 
 When starting a new feature cell, create:
 
 1. **Feature branch** from `main`
-2. **SCOPE.json** at repository root (see template below)
+2. **`.auto-shop/cells/<branch>/SCOPE.json`** on the feature branch (legacy root-level files still work)
 3. **GitHub Issue** using the feature-cell template
 4. **Environment provisioning** (database schema, ports, etc.)
 5. **Agent session** in an IDE (Cursor) with the standard agent prompt
@@ -81,8 +81,8 @@ Project: [project name]
 Branch: [branch name]
 
 ## Before You Start
-1. Read SCOPE.json carefully — it defines exactly what you are and are not allowed to touch
-2. If HANDOFF.md exists, read it — it tells you what was done in a previous session
+1. Read the branch scope manifest carefully — it defines exactly what you are and are not allowed to touch
+2. If the branch handoff exists, read it — it tells you what was done in a previous session
 3. Explore the existing codebase structure before writing any code
 
 ## Boundaries & Stopping Conditions
@@ -97,7 +97,7 @@ Stop immediately and write to BLOCKER.md if:
 - The scope manifest appears incomplete or incorrect
 
 When the feature is complete (all acceptance criteria met, tests pass, TS compiles, lint passes):
-1. Write HANDOFF.md
+1. Write the branch handoff file
 2. Open a draft PR with title prefix [READY]: [feature name]
 3. Stop — do not make further changes after opening the PR
 

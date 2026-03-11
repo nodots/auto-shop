@@ -25,6 +25,10 @@
 const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
+const {
+  ensureArtifactDirectory,
+  getArtifactPath,
+} = require('../scripts/hooks/resolve-cell-artifact.js');
 
 const REPO_ROOT = path.dirname(path.dirname(__filename));
 const MERGE_QUEUE_PATH = path.join(REPO_ROOT, 'MERGE_QUEUE.md');
@@ -163,7 +167,13 @@ function cellCreateSingleRepo(featureName, proj, projectName) {
     info(`Creating branch: ${branchName}`);
     execSync(`git checkout -b ${branchName}`, { cwd, stdio: 'inherit' });
 
-    info('Creating SCOPE.json');
+    const scopePath = getArtifactPath(cwd, 'scope', {
+      branch: branchName,
+      preferExisting: false,
+    });
+    const scopeRelPath = path.relative(cwd, scopePath);
+
+    info(`Creating ${scopeRelPath}`);
     const templateToUse = scopeTemplatePath || path.join(REPO_ROOT, 'templates', 'SCOPE.json');
     const scope = JSON.parse(fs.readFileSync(templateToUse, 'utf8'));
     scope.feature = featureName;
@@ -173,10 +183,10 @@ function cellCreateSingleRepo(featureName, proj, projectName) {
       scope.project = projectName;
     }
 
-    const scopePath = path.join(cwd, 'SCOPE.json');
+    ensureArtifactDirectory(scopePath);
     fs.writeFileSync(scopePath, JSON.stringify(scope, null, 2) + '\n');
 
-    execSync(`git add SCOPE.json && git commit -m "Add SCOPE.json for ${branchName}"`, {
+    execSync(`git add "${scopeRelPath}" && git commit -m "Add SCOPE.json for ${branchName}"`, {
       cwd,
       stdio: 'inherit'
     });
@@ -248,7 +258,13 @@ function cellCreateMultiRepo(featureName, proj, projectName, selectedPackages) {
       info(`Creating branch: ${branchName}`);
       execSync(`git checkout -b ${branchName}`, { cwd: pkgPath, stdio: 'inherit' });
 
-      info('Creating SCOPE.json');
+      const scopePath = getArtifactPath(pkgPath, 'scope', {
+        branch: branchName,
+        preferExisting: false,
+      });
+      const scopeRelPath = path.relative(pkgPath, scopePath);
+
+      info(`Creating ${scopeRelPath}`);
       const scope = JSON.parse(fs.readFileSync(scopeTemplatePath, 'utf8'));
       scope.feature = featureName;
       scope.project = projectName;
@@ -266,10 +282,10 @@ function cellCreateMultiRepo(featureName, proj, projectName, selectedPackages) {
         }
       }
 
-      const scopePath = path.join(pkgPath, 'SCOPE.json');
+      ensureArtifactDirectory(scopePath);
       fs.writeFileSync(scopePath, JSON.stringify(scope, null, 2) + '\n');
 
-      execSync(`git add SCOPE.json && git commit -m "Add SCOPE.json for ${branchName}"`, {
+      execSync(`git add "${scopeRelPath}" && git commit -m "Add SCOPE.json for ${branchName}"`, {
         cwd: pkgPath,
         stdio: 'inherit'
       });

@@ -1,0 +1,29 @@
+{
+  "feature": "Reduce Auto Shop merge noise",
+  "project": "auto-shop",
+  "branch": "feat/reduce-auto-shop-merge-noise",
+  "createdAt": "2026-03-11",
+  "allowedPaths": [
+    ".github/workflows/feature-ci.yml",
+    "README.md",
+    "CLAUDE.md",
+    "bin/auto-shop",
+    "docs/merge-procedure.md",
+    "docs/quickstart.md",
+    "scripts/enforce-scope.js",
+    "scripts/hooks/**",
+    "scripts/setup-claude-infra.sh",
+    "templates/README.md"
+  ],
+  "forbiddenPaths": [
+    "contracts/**",
+    "src/types/shared/**",
+    "package.json",
+    "package-lock.json",
+    "tsconfig.json",
+    "tsconfig.*.json"
+  ],
+  "dependsOn": [],
+  "blockedBy": [],
+  "estimatedScope": "Small - move cell artifacts off the repo root and keep legacy branches readable"
+}

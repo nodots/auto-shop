@@ -3,27 +3,18 @@
   "project": "auto-shop",
   "branch": "feat/integrate-auto-shop-with-slack-for-cell-notifications-and-coordinator-commands",
   "createdAt": "2026-03-11",
-  "allowedPaths": [
-    ".github/workflows/slack-label-change.yml",
-    ".github/workflows/slack-pr-events.yml",
-    ".github/workflows/slack-stale-cells.yml",
-    ".github/workflows/feature-ci.yml",
-    "scripts/hooks/notify-slack-posttooluse.sh",
-    "scripts/hooks/enforce-scope-pretooluse.js",
-    "scripts/setup-claude-infra.sh",
-    "scripts/slack-bot/**",
-    "scripts/slack-bot/.*",
-    "docs/slack-integration.md"
-  ],
+  "allowedPaths": [],
   "forbiddenPaths": [
     "contracts/**",
     "src/types/shared/**",
     "package.json",
     "package-lock.json",
     "tsconfig.json",
-    "tsconfig.*.json"
+    "tsconfig.*.json",
+    ".github/**",
+    "scripts/**"
   ],
   "dependsOn": [],
   "blockedBy": [],
-  "estimatedScope": "Slack integration for cell notifications and coordinator slash commands"
+  "estimatedScope": ""
 }

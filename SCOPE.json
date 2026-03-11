@@ -12,6 +12,7 @@
     "scripts/hooks/enforce-scope-pretooluse.js",
     "scripts/setup-claude-infra.sh",
     "scripts/slack-bot/**",
+    "scripts/slack-bot/.*",
     "docs/slack-integration.md"
   ],
   "forbiddenPaths": [

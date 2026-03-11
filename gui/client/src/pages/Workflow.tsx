@@ -11,6 +11,7 @@ import {
 import {
   WORKFLOW_STATES,
   issueRefToPath,
+  workflowStateColors,
   workflowStateLabels,
   type WorkflowState,
 } from '../workflow';
@@ -21,7 +22,7 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
 import CircularProgress from '@mui/material/CircularProgress';
-import Divider from '@mui/material/Divider';
+import IconButton from '@mui/material/IconButton';
 import Paper from '@mui/material/Paper';
 import Stack from '@mui/material/Stack';
 import TextField from '@mui/material/TextField';
@@ -49,8 +50,23 @@ function matchesSearch(issue: WorkflowIssueSummary, search: string) {
   );
 }
 
+function summarizeIssueSupport(
+  issue: WorkflowIssueSummary,
+  detail: string,
+  signalCount: number,
+  firstSignal?: string
+) {
+  if (signalCount > 0) {
+    return signalCount === 1 && firstSignal ? firstSignal : `${signalCount} checks need attention`;
+  }
+  if (issue.workflowState === 'blocked' && issue.linkedExecution?.blocker) {
+    return issue.linkedExecution.blocker;
+  }
+
+  return detail;
+}
+
 export default function Workflow() {
-  const theme = useTheme();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [projectFilter, setProjectFilter] = useState('');
@@ -191,9 +207,8 @@ export default function Workflow() {
               <Box sx={{ overflowX: 'auto' }}>
                 <Box
                   sx={{
-                    minWidth: 1680,
                     display: 'grid',
-                    gridTemplateColumns: '280px repeat(8, minmax(170px, 1fr))',
+                    gridTemplateColumns: 'repeat(9, minmax(0, 1fr))',
                     alignItems: 'stretch',
                   }}
                 >
@@ -307,11 +322,11 @@ function MatrixHeaderCell({
   return (
     <Box
       sx={{
-        p: 1.25,
+        p: 1,
         borderBottom: '1px solid',
         borderColor: 'divider',
         bgcolor: 'background.default',
-        minHeight: 58,
+        minHeight: 54,
       }}
     >
       <Stack spacing={0.25}>
@@ -348,12 +363,13 @@ function ProjectRow({
   sessionsByIssueRef: Map<string, SchedulerSession>;
 }) {
   const striped = rowIndex % 2 === 1;
+  const projectActions = getProjectActions(project);
 
   return (
     <>
       <Box
         sx={{
-          p: 1.25,
+          p: 0.85,
           borderBottom: '1px solid',
           borderColor: 'divider',
           bgcolor: striped ? alpha('#0f1726', 0.015) : 'background.paper',
@@ -362,38 +378,51 @@ function ProjectRow({
           overflowY: 'auto',
         }}
       >
-        <Stack spacing={1}>
-          <Typography variant="body2" fontWeight={800}>
+        <Stack spacing={0.75} sx={{ minWidth: 0 }}>
+          <Typography
+            variant="body2"
+            fontWeight={800}
+            sx={{
+              display: '-webkit-box',
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: 'vertical',
+              overflow: 'hidden',
+            }}
+          >
             {project.name}
           </Typography>
-          <Typography variant="caption" color="text.secondary">
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+            }}
+          >
             {project.repo}
           </Typography>
           <Typography variant="caption" color="text.secondary">
             {project.issueCount} issues · {project.executionCount} linked
           </Typography>
-          <Stack spacing={0.6}>
-            {getProjectActions(project).length === 0 ? (
+          {projectActions.length === 0 ? (
+            <Typography variant="caption" color="text.secondary">
+              No immediate coordinator action.
+            </Typography>
+          ) : (
+            <>
+              <Chip
+                label={projectActions[0].label}
+                size="small"
+                color={projectActions[0].color}
+                variant="outlined"
+                sx={{ alignSelf: 'flex-start', maxWidth: '100%' }}
+              />
               <Typography variant="caption" color="text.secondary">
-                No immediate coordinator action.
+                {projectActions.length > 1 ? `+${projectActions.length - 1} more` : 'Top coordinator action'}
               </Typography>
-            ) : (
-              getProjectActions(project).map((action) => (
-                <Box key={action.label}>
-                  <Chip
-                    label={action.label}
-                    size="small"
-                    color={action.color}
-                    variant="outlined"
-                    sx={{ mb: 0.4 }}
-                  />
-                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                    {action.detail}
-                  </Typography>
-                </Box>
-              ))
-            )}
-          </Stack>
+            </>
+          )}
         </Stack>
       </Box>
       {WORKFLOW_STATES.map((state) => (
@@ -457,13 +486,14 @@ function CompactIssueRow({
     <Paper
       variant="outlined"
       sx={{
-        p: 0.75,
+        p: 0.85,
         borderRadius: 1.5,
         boxShadow: 'none',
         backgroundColor: alpha(theme.palette.background.default, 0.45),
+        minWidth: 0,
       }}
     >
-      <Stack spacing={0.5}>
+      <Stack spacing={0.8} sx={{ minWidth: 0 }}>
         <Typography
           variant="caption"
           sx={{
@@ -478,47 +508,47 @@ function CompactIssueRow({
           {issue.title}
         </Typography>
 
-        <Typography variant="caption" color="text.secondary">
-          #{issue.number} · {formatAge(issue.updatedAt)}
-        </Typography>
-
-        <Chip
-          label={action.label}
-          size="small"
-          color={action.color}
-          variant="outlined"
-          sx={{ alignSelf: 'flex-start' }}
-        />
-
-        {issue.linkedExecution && (
-          <Typography
-            variant="caption"
-            color="text.secondary"
-            sx={{
-              display: 'block',
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-            }}
-          >
-            {issue.linkedExecution.branch}
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 0.75,
+            minWidth: 0,
+          }}
+        >
+          <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
+            #{issue.number} · {formatAge(issue.updatedAt)}
           </Typography>
-        )}
+          <Chip
+            label={workflowStateLabels[issue.workflowState]}
+            size="small"
+            color={workflowStateColors[issue.workflowState]}
+            variant="outlined"
+            sx={{ flexShrink: 0 }}
+          />
+        </Box>
 
         <Typography
           variant="caption"
-          color="text.secondary"
+          color={health && health.signals.length > 0 ? 'warning.main' : 'text.secondary'}
           sx={{
             display: '-webkit-box',
             WebkitLineClamp: 2,
             WebkitBoxOrient: 'vertical',
             overflow: 'hidden',
+            minHeight: 32,
           }}
         >
-          {action.detail}
+          {summarizeIssueSupport(
+            issue,
+            action.detail,
+            health?.signals.length || 0,
+            health?.signals[0]?.label
+          )}
         </Typography>
         {(canQueue || canClose) && (
-          <Stack direction="row" spacing={1}>
+          <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap">
             {canQueue && (
               <Button
                 size="small"
@@ -544,31 +574,18 @@ function CompactIssueRow({
             )}
           </Stack>
         )}
-        {health && health.signals.length > 0 && (
-          <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-            {health.signals.map((signal) => (
-              <Chip
-                key={signal.label}
-                label={signal.label}
-                size="small"
-                color={signal.color}
-                variant="outlined"
-              />
-            ))}
-          </Box>
-        )}
 
-        {issue.labels.length > 0 && (
-          <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-            {issue.labels.slice(0, 2).map((label) => (
-              <Chip key={label} label={label} size="small" variant="outlined" />
-            ))}
-          </Box>
-        )}
-
-        <Divider />
-
-        <Stack direction="row" spacing={1}>
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 0.75,
+            pt: 0.5,
+            borderTop: '1px solid',
+            borderColor: 'divider',
+          }}
+        >
           <Button
             component={Link}
             to={issueRefToPath(issue.issueRef)}
@@ -578,19 +595,18 @@ function CompactIssueRow({
           >
             Workspace
           </Button>
-          <Button
+          <IconButton
             component="a"
             href={issue.htmlUrl}
             target="_blank"
             rel="noreferrer"
             size="small"
-            variant="text"
-            startIcon={<OpenInNewRoundedIcon sx={{ fontSize: 13 }} />}
-            sx={{ minWidth: 0, px: 0, py: 0, fontSize: '0.72rem' }}
+            aria-label={`Open ${issue.issueRef} on GitHub`}
+            sx={{ p: 0.25, ml: 'auto' }}
           >
-            GitHub
-          </Button>
-        </Stack>
+            <OpenInNewRoundedIcon sx={{ fontSize: 16 }} />
+          </IconButton>
+        </Box>
       </Stack>
     </Paper>
   );

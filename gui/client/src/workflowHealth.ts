@@ -8,10 +8,10 @@ import type {
 const NO_MOVEMENT_ATTENTION_MS = 2 * 60 * 60 * 1000;
 
 export type WorkflowHealth = {
-  label: string;
-  color: ChipProps['color'];
-  reasons: string[];
-  isAttention: boolean;
+  signals: Array<{
+    label: string;
+    color: ChipProps['color'];
+  }>;
   lastMovementAt: string | null;
 };
 
@@ -45,33 +45,20 @@ export function getIssueHealth(
   const lastMovementAt = getIssueLastMovementAt(issue);
   const noRecentMovement =
     lastMovementAt !== null && Date.now() - new Date(lastMovementAt).getTime() > NO_MOVEMENT_ATTENTION_MS;
-  const reasons: string[] = [];
+  const signals: WorkflowHealth['signals'] = [];
 
   if (!session) {
-    reasons.push('No runtime session');
+    signals.push({ label: 'Runtime session missing', color: 'warning' });
   }
   if (!issue.linkedPullRequest) {
-    reasons.push('No PR linked');
+    signals.push({ label: 'PR not linked', color: 'warning' });
   }
   if (noRecentMovement) {
-    reasons.push('No movement in the last 2h');
-  }
-
-  if (reasons.length > 0) {
-    return {
-      label: 'At Risk',
-      color: 'warning',
-      reasons,
-      isAttention: true,
-      lastMovementAt,
-    };
+    signals.push({ label: 'No movement in the last 2h', color: 'warning' });
   }
 
   return {
-    label: 'On Track',
-    color: 'success',
-    reasons: ['Execution is in progress and showing current signals.'],
-    isAttention: false,
+    signals,
     lastMovementAt,
   };
 }

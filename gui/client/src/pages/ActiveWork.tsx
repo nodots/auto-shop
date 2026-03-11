@@ -23,6 +23,16 @@ type DispatchLogResult = {
   log: string;
 };
 
+function formatTimestamp(value: string | null | undefined) {
+  if (!value) return 'Unknown';
+  return new Date(value).toLocaleString();
+}
+
+function compactId(value: string) {
+  if (value.length <= 16) return value;
+  return `${value.slice(0, 8)}...${value.slice(-4)}`;
+}
+
 function flatten(issues: WorkflowIssueSummary[][]) {
   return issues.flat().sort(
     (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
@@ -115,10 +125,29 @@ export default function ActiveWork() {
             ) : (
               dispatchQuery.data.activeSessions.map((session) => (
                 <Paper key={session.issueRef} variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
-                  <Typography fontWeight={700}>{session.title}</Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {session.issueRef} · {session.branch}
-                  </Typography>
+                  <Stack spacing={0.75}>
+                    <Typography fontWeight={700}>{session.title}</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {session.issueRef} · {session.branch}
+                    </Typography>
+                    <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap">
+                      <Chip label={`PID ${session.pid}`} size="small" variant="outlined" />
+                      {session.claudeSessionId && (
+                        <Chip
+                          label={`Claude ${compactId(session.claudeSessionId)}`}
+                          size="small"
+                          color="primary"
+                          variant="outlined"
+                        />
+                      )}
+                    </Stack>
+                    <Typography variant="caption" color="text.secondary">
+                      Last activity: {formatTimestamp(session.lastActivityAt)}
+                    </Typography>
+                    <Typography variant="body2">
+                      {session.latestActivitySummary || 'Claude activity has not been observed yet.'}
+                    </Typography>
+                  </Stack>
                 </Paper>
               ))
             )}
@@ -211,12 +240,28 @@ function RuntimeLogPreview({
       <Stack spacing={0.75}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 1, alignItems: 'center' }}>
           <Typography variant="caption" fontWeight={700}>
-            Runtime Log
+            Claude Activity
           </Typography>
-          <Chip label={`PID ${session.pid}`} size="small" variant="outlined" />
+          <Stack direction="row" spacing={0.75} useFlexGap flexWrap="wrap" justifyContent="flex-end">
+            <Chip label={`PID ${session.pid}`} size="small" variant="outlined" />
+            {session.claudeSessionId && (
+              <Chip
+                label={`Session ${compactId(session.claudeSessionId)}`}
+                size="small"
+                color="primary"
+                variant="outlined"
+              />
+            )}
+          </Stack>
         </Box>
         <Typography variant="caption" color="text.secondary">
-          Started {new Date(session.startedAt).toLocaleString()}
+          Started {formatTimestamp(session.startedAt)}
+        </Typography>
+        <Typography variant="caption" color="text.secondary">
+          Last activity {formatTimestamp(session.lastActivityAt)}
+        </Typography>
+        <Typography variant="body2">
+          {session.latestActivitySummary || 'Waiting for Claude activity from the remote session.'}
         </Typography>
         {logQuery?.isLoading ? (
           <Typography variant="caption" color="text.secondary">

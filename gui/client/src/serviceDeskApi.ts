@@ -196,6 +196,7 @@ export interface WorkflowIssueUpdateInput {
   body?: string;
   comment?: string;
   assignee?: string | null;
+  githubState?: 'open' | 'closed';
   workflowState?: import('./workflow').MutableWorkflowState;
   scope?: object | null;
   blocker?: string | null;
@@ -260,6 +261,12 @@ export interface DispatchSession {
   pid: number;
   logFile: string;
   startedAt: string;
+  localPath: string;
+  claudeSessionId: string | null;
+  claudeProjectPath: string | null;
+  lastActivityAt: string | null;
+  latestActivitySummary: string | null;
+  latestActivityType: string | null;
 }
 
 export interface DispatchQueueItem {

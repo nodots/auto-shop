@@ -1,9 +1,10 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   fetchDispatchBoardStatus,
   fetchWorkflowOverview,
+  updateWorkflowIssue,
   type DispatchSession,
   type WorkflowIssueSummary,
 } from '../serviceDeskApi';
@@ -347,9 +348,6 @@ function ProjectRow({
   sessionsByIssueRef: Map<string, DispatchSession>;
 }) {
   const striped = rowIndex % 2 === 1;
-  const attentionCount = project.states['in-progress'].filter(
-    (issue) => getIssueHealth(issue, sessionsByIssueRef.get(issue.issueRef))?.isAttention
-  ).length;
 
   return (
     <>
@@ -374,15 +372,6 @@ function ProjectRow({
           <Typography variant="caption" color="text.secondary">
             {project.issueCount} issues · {project.executionCount} linked
           </Typography>
-          {attentionCount > 0 && (
-            <Chip
-              label={`${attentionCount} in-progress at risk`}
-              size="small"
-              color="warning"
-              variant="outlined"
-              sx={{ alignSelf: 'flex-start' }}
-            />
-          )}
           <Stack spacing={0.6}>
             {getProjectActions(project).length === 0 ? (
               <Typography variant="caption" color="text.secondary">
@@ -450,9 +439,19 @@ function CompactIssueRow({
   session?: DispatchSession;
 }) {
   const theme = useTheme();
+  const queryClient = useQueryClient();
   const action = getIssueAction(issue);
   const health = getIssueHealth(issue, session);
-  const attentionHealth = health?.isAttention ? health : null;
+  const issueActionMutation = useMutation({
+    mutationFn: (input: { workflowState?: 'ready'; githubState?: 'closed' }) =>
+      updateWorkflowIssue(issue.issueRef, input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['workflow-overview'] });
+      queryClient.invalidateQueries({ queryKey: ['workflow-issue', issue.issueRef] });
+    },
+  });
+  const canQueue = issue.workflowState === 'backlog' && issue.githubState === 'open';
+  const canClose = issue.workflowState === 'backlog' && issue.githubState === 'open';
 
   return (
     <Paper
@@ -490,15 +489,6 @@ function CompactIssueRow({
           variant="outlined"
           sx={{ alignSelf: 'flex-start' }}
         />
-        {attentionHealth && (
-          <Chip
-            label={attentionHealth.label}
-            size="small"
-            color={attentionHealth.color}
-            variant="outlined"
-            sx={{ alignSelf: 'flex-start' }}
-          />
-        )}
 
         {issue.linkedExecution && (
           <Typography
@@ -527,19 +517,45 @@ function CompactIssueRow({
         >
           {action.detail}
         </Typography>
-        {attentionHealth && (
-          <Typography
-            variant="caption"
-            color="warning.main"
-            sx={{
-              display: '-webkit-box',
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: 'vertical',
-              overflow: 'hidden',
-            }}
-          >
-            {attentionHealth.reasons.join(' · ')}
-          </Typography>
+        {(canQueue || canClose) && (
+          <Stack direction="row" spacing={1}>
+            {canQueue && (
+              <Button
+                size="small"
+                variant="outlined"
+                disabled={issueActionMutation.isPending}
+                onClick={() => issueActionMutation.mutate({ workflowState: 'ready' })}
+                sx={{ minWidth: 0, px: 1.2, py: 0.25, fontSize: '0.72rem' }}
+              >
+                Queue
+              </Button>
+            )}
+            {canClose && (
+              <Button
+                size="small"
+                color="inherit"
+                variant="outlined"
+                disabled={issueActionMutation.isPending}
+                onClick={() => issueActionMutation.mutate({ githubState: 'closed' })}
+                sx={{ minWidth: 0, px: 1.2, py: 0.25, fontSize: '0.72rem' }}
+              >
+                Close
+              </Button>
+            )}
+          </Stack>
+        )}
+        {health && health.signals.length > 0 && (
+          <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+            {health.signals.map((signal) => (
+              <Chip
+                key={signal.label}
+                label={signal.label}
+                size="small"
+                color={signal.color}
+                variant="outlined"
+              />
+            ))}
+          </Box>
         )}
 
         {issue.labels.length > 0 && (

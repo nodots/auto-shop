@@ -325,8 +325,30 @@ async function fetchPullRequestForUrl(octokit: Octokit, url: string, refresh?: b
   return data;
 }
 
+function shouldRefreshPullRequest(args: {
+  issueState?: 'open' | 'closed';
+  issueClosedAt?: string | null;
+  executionStatus?: string | null;
+  labels?: string[];
+}) {
+  if (args.issueState === 'closed' || args.issueClosedAt) {
+    return true;
+  }
+
+  if (args.executionStatus === 'awaiting-review') {
+    return true;
+  }
+
+  if (args.labels?.includes('cell:awaiting-review')) {
+    return true;
+  }
+
+  return false;
+}
+
 function deriveWorkflowState(input: {
   labels: string[];
+  githubState?: 'open' | 'closed';
   executionStatus?: string | null;
   pullRequest: WorkflowPullRequestSummary | null;
   inShippingQueue: boolean;
@@ -360,10 +382,6 @@ function deriveWorkflowState(input: {
     merged: projectConfig.shippingMode === 'approval' ? 'done' : 'promotion',
   };
 
-  if (input.executionStatus && executionMap[input.executionStatus]) {
-    return { state: executionMap[input.executionStatus], source: 'execution' };
-  }
-
   const labelMap: Record<string, WorkflowState> = {
     'cell:queued': 'ready',
     'cell:active': 'in-progress',
@@ -371,6 +389,18 @@ function deriveWorkflowState(input: {
     'cell:awaiting-review': 'review',
     'cell:merged': projectConfig.shippingMode === 'approval' ? 'done' : 'promotion',
   };
+
+  if (input.githubState !== 'closed') {
+    for (const label of input.labels) {
+      if (labelMap[label]) {
+        return { state: labelMap[label], source: 'label' };
+      }
+    }
+  }
+
+  if (input.executionStatus && executionMap[input.executionStatus]) {
+    return { state: executionMap[input.executionStatus], source: 'execution' };
+  }
 
   for (const label of input.labels) {
     if (labelMap[label]) {
@@ -487,9 +517,28 @@ export async function listWorkflowIssues(options?: {
         .filter(Boolean)
     ),
   ] as string[];
+  const forceRefreshPullRequestUrls = new Set(
+    issues
+      .map((issue) => {
+        const execution = executionContext.latestExecutionByIssueUrl.get(issue.htmlUrl);
+        if (!execution?.githubPrUrl) return null;
+
+        return shouldRefreshPullRequest({
+          issueState: issue.githubState,
+          issueClosedAt: issue.closedAt,
+          executionStatus: execution.status,
+          labels: issue.labels,
+        })
+          ? execution.githubPrUrl
+          : null;
+      })
+      .filter(Boolean) as string[]
+  );
 
   const pullRequestResults = await Promise.allSettled(
-    pullRequestUrls.map((url) => fetchPullRequestForUrl(octokit, url, options?.refresh))
+    pullRequestUrls.map((url) =>
+      fetchPullRequestForUrl(octokit, url, options?.refresh || forceRefreshPullRequestUrls.has(url))
+    )
   );
 
   const pullRequestsByUrl = new Map<string, WorkflowPullRequestSummary>();
@@ -508,6 +557,7 @@ export async function listWorkflowIssues(options?: {
         execution?.githubPrUrl ? pullRequestsByUrl.get(execution.githubPrUrl) || null : null;
       const derived = deriveWorkflowState({
         labels: issue.labels,
+        githubState: issue.githubState,
         executionStatus: execution?.status,
         pullRequest: linkedPullRequest,
         inShippingQueue,
@@ -528,7 +578,9 @@ export async function listWorkflowIssues(options?: {
     })
     .filter((issue) => {
       if (issue.githubState === 'open') return true;
-      if (issue.workflowState !== 'backlog') return true;
+      if (issue.workflowState === 'promotion' || issue.workflowState === 'shipping' || issue.workflowState === 'done') {
+        return true;
+      }
       return Boolean(options?.includeClosedBacklog);
     })
     .sort((a, b) => {
@@ -613,12 +665,24 @@ export async function getWorkflowIssueDetail(issueRef: string) {
   const inShippingQueue = execution ? executionContext.shippingCellIds.has(execution.id) : false;
   const linkedPullRequest =
     execution?.githubPrUrl
-      ? await fetchPullRequestForUrl(octokit, execution.githubPrUrl).catch(() => null)
+      ? await fetchPullRequestForUrl(
+          octokit,
+          execution.githubPrUrl,
+          shouldRefreshPullRequest({
+            issueState: issueResponse.data.state as 'open' | 'closed',
+            issueClosedAt: issueResponse.data.closed_at,
+            executionStatus: execution.status,
+            labels: issueResponse.data.labels
+              .map((label) => (typeof label === 'string' ? label : label.name || ''))
+              .filter(Boolean),
+          })
+        ).catch(() => null)
       : null;
   const derived = deriveWorkflowState({
     labels: issueResponse.data.labels
       .map((label) => (typeof label === 'string' ? label : label.name || ''))
       .filter(Boolean),
+    githubState: issueResponse.data.state as 'open' | 'closed',
     executionStatus: execution?.status,
     pullRequest: linkedPullRequest,
     inShippingQueue,
@@ -684,6 +748,7 @@ export async function updateWorkflowIssue(
     body?: string;
     comment?: string;
     assignee?: string | null;
+    githubState?: 'open' | 'closed';
     workflowState?: MutableWorkflowState;
     scope?: object | null;
     blocker?: string | null;
@@ -700,7 +765,8 @@ export async function updateWorkflowIssue(
   if (
     updates.title !== undefined ||
     updates.body !== undefined ||
-    updates.assignee !== undefined
+    updates.assignee !== undefined ||
+    updates.githubState !== undefined
   ) {
     await octokit.issues.update({
       owner,
@@ -708,6 +774,7 @@ export async function updateWorkflowIssue(
       issue_number: number,
       title: updates.title ?? detail.title,
       body: updates.body ?? detail.body,
+      state: updates.githubState ?? detail.githubState,
       assignees:
         updates.assignee === undefined
           ? detail.assignee
@@ -716,6 +783,15 @@ export async function updateWorkflowIssue(
           : updates.assignee
             ? [updates.assignee]
             : [],
+    });
+  }
+
+  if (updates.githubState === 'closed') {
+    await octokit.issues.setLabels({
+      owner,
+      repo: name,
+      issue_number: number,
+      labels: detail.labels.filter((label) => !ISSUE_STATE_LABELS.includes(label as never)),
     });
   }
 

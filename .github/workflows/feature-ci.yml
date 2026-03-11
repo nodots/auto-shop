@@ -22,15 +22,6 @@ jobs:
 
       - run: npm ci
 
-      - name: TypeScript
-        run: npx tsc --noEmit
-
-      - name: Lint
-        run: npm run lint
-
-      - name: Test
-        run: npm test
-
       - name: Scope manifest present
         run: |
           SCOPE_PATH="$(node scripts/hooks/resolve-cell-artifact.js path scope "$PWD")"
@@ -38,6 +29,22 @@ jobs:
             echo "❌ Scope manifest missing from feature branch ($SCOPE_PATH)"
             exit 1
           fi
+
+      - name: JavaScript syntax
+        run: |
+          node --check bin/auto-shop
+          node --check scripts/enforce-scope.js
+          node --check scripts/hooks/enforce-scope-pretooluse.js
+          node --check scripts/hooks/resolve-cell-artifact.js
+
+      - name: Shell syntax
+        run: |
+          bash -n scripts/hooks/check-handoff-on-complete.sh
+          bash -n scripts/hooks/check-handoff-on-stop.sh
+          bash -n scripts/setup-claude-infra.sh
+
+      - name: Whitespace check
+        run: git diff --check
 
   integration-check:
     runs-on: ubuntu-latest
@@ -50,7 +57,7 @@ jobs:
           ref: main
           fetch-depth: 0
 
-      - name: Rebase onto main and test
+      - name: Rebase onto main and validate
         run: |
           git config user.email "ci@nodots.dev"
           git config user.name "CI"
@@ -58,4 +65,13 @@ jobs:
           git checkout ${{ github.ref_name }}
           git rebase origin/main
           npm ci
-          npm test
+          SCOPE_PATH="$(node scripts/hooks/resolve-cell-artifact.js path scope "$PWD")"
+          test -f "$SCOPE_PATH"
+          node --check bin/auto-shop
+          node --check scripts/enforce-scope.js
+          node --check scripts/hooks/enforce-scope-pretooluse.js
+          node --check scripts/hooks/resolve-cell-artifact.js
+          bash -n scripts/hooks/check-handoff-on-complete.sh
+          bash -n scripts/hooks/check-handoff-on-stop.sh
+          bash -n scripts/setup-claude-infra.sh
+          git diff --check

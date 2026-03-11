@@ -20,50 +20,50 @@ function proxyToScheduler(schedulerPath: string, method: string, res: any) {
   });
 
   req.on('error', () => {
-    res.status(503).json({ error: 'Dispatch board is not running' });
+    res.status(503).json({ error: 'Scheduler is not running' });
   });
 
   req.end();
 }
 
-// GET /api/dispatch/status
+// GET /api/scheduler/status
 router.get('/status', (_req, res) => {
   proxyToScheduler('/api/scheduler/status', 'GET', res);
 });
 
-// POST /api/dispatch/pause
+// POST /api/scheduler/pause
 router.post('/pause', (_req, res) => {
   proxyToScheduler('/api/scheduler/pause', 'POST', res);
 });
 
-// POST /api/dispatch/resume
+// POST /api/scheduler/resume
 router.post('/resume', (_req, res) => {
   proxyToScheduler('/api/scheduler/resume', 'POST', res);
 });
 
-// POST /api/dispatch/scan
+// POST /api/scheduler/scan
 router.post('/scan', (_req, res) => {
   proxyToScheduler('/api/scheduler/scan', 'POST', res);
 });
 
-// POST /api/dispatch/stop
+// POST /api/scheduler/stop
 router.post('/stop', (_req, res) => {
   proxyToScheduler('/api/scheduler/stop', 'POST', res);
 });
 
-// DELETE /api/dispatch/queue/:issueRef
+// DELETE /api/scheduler/queue/:issueRef
 router.delete('/queue/:issueRef', (req, res) => {
   const encoded = encodeURIComponent(req.params.issueRef);
   proxyToScheduler(`/api/scheduler/queue/${encoded}`, 'DELETE', res);
 });
 
-// POST /api/dispatch/kill/:issueRef
+// POST /api/scheduler/kill/:issueRef
 router.post('/kill/:issueRef', (req, res) => {
   const encoded = encodeURIComponent(req.params.issueRef);
   proxyToScheduler(`/api/scheduler/kill/${encoded}`, 'POST', res);
 });
 
-// GET /api/dispatch/logs/:issueRef
+// GET /api/scheduler/logs/:issueRef
 router.get('/logs/:issueRef', (req, res) => {
   const encoded = encodeURIComponent(req.params.issueRef);
   proxyToScheduler(`/api/scheduler/logs/${encoded}`, 'GET', res);

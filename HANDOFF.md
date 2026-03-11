@@ -1,80 +1,54 @@
-# Handoff: Add web GUI for coordinator workflow management
+# Handoff: Workflow board status cleanup
 
-Date: 2026-03-07
-Status: complete
-Branch: claude/add-web-gui-coordinator-Kyizj
-Issue: https://github.com/nodots/auto-shop/issues/29
+Date: 2026-03-11
+Status: in progress
+Branch: feat/ui-workflow-foundation
 
-## What Was Done
+## Summary
 
-- Created `gui/` directory with Express + TypeScript API server and React + TypeScript (Vite) client
-- **Server** (`gui/server/`):
-  - Express API on port 3400 with CORS support
-  - PostgreSQL schema: `projects`, `packages`, `cells`, `cell_status_history`, `merge_queue` tables
-  - Routes: `/api/projects` (list, sync from projects.json, raw read), `/api/cells` (CRUD, status transitions, filtering), `/api/dashboard` (aggregated data), `/api/merge-queue` (ordered queue with reordering), `/api/git` (read files from branches via `git show`, list feature branches), `/api/health`
-  - Graceful degradation when database is unavailable
-  - Serves built client in production mode
-- **Client** (`gui/client/`):
-  - Vite dev server on port 5473 with API proxy to Express
-  - Dashboard page: capacity gauge (0-4 active cells), status counts with links, blocked cell alerts, ready PRs list, recent activity timeline
-  - Cells list page: filterable by status, sortable table
-  - Cell detail page: scope/blocker/handoff/history tabs, status transition buttons with optional notes, delete (teardown)
-  - Cell creation form: auto-generates branch name from feature, project selector from projects.json
-  - Projects page: displays all projects from projects.json with packages, sync-to-DB button
-  - Merge queue page: ordered list with up/down reordering and remove buttons
-  - Tailwind CSS styling, responsive layout
-  - TanStack React Query for data fetching with cache invalidation
+The current branch is a broader workflow UI rewrite under `gui/`. Today's focused fix was to stop the board from implying that `stale` and `active` are peer statuses. `in-progress` remains the workflow state; inactivity is now treated as an attention signal only.
 
-## Key Decisions
+## What Changed Today
 
-- **All code under `gui/`**: No modifications to existing files, as specified in the issue
-- **Filesystem + GitHub remain source of truth**: DB is a cache/sync layer; `/api/projects/raw` reads directly from `projects.json`
-- **No @dnd-kit or @monaco-editor**: Used simpler up/down buttons for queue reordering and `<pre>` for scope JSON display to keep the initial implementation focused. These can be added in Phase 4-5.
-- **No @octokit/rest integration yet**: Listed as a dependency in the issue but not wired up in Phase 1. The git routes use `git show` for local branch inspection.
-- **Graceful DB degradation**: Server starts even without PostgreSQL, logging a warning. API routes that need the DB will return errors, but `/api/projects/raw` and `/api/git/*` work without DB.
+- Updated `gui/client/src/workflowHealth.ts`
+  - Renamed the inactivity threshold constant to `NO_MOVEMENT_ATTENTION_MS`
+  - Reworded the warning signal from generic stale language to `At Risk`
+  - Changed the stale reason text to `No movement in the last 2h`
+- Updated `gui/client/src/pages/Workflow.tsx`
+  - Fixed `attentionCount` so it only counts `isAttention === true`
+  - Changed the project summary chip text from `active need attention` to `in-progress at risk`
+  - Stopped rendering the extra health chip/details for healthy in-progress items
 
-## Files Modified
+## Important Finding
 
-All new files under `gui/` — no existing files were modified.
+There was a real logic bug on the board: `attentionCount` was counting every in-progress issue because `getIssueHealth()` always returns an object for in-progress work, including healthy items. That is fixed now.
 
-| Path | Purpose |
-|------|---------|
-| `gui/.gitignore` | Ignore node_modules, dist, tsbuildinfo |
-| `gui/server/package.json` | Server dependencies and scripts |
-| `gui/server/tsconfig.json` | TypeScript config for server |
-| `gui/server/src/index.ts` | Express app entry point |
-| `gui/server/src/db.ts` | PostgreSQL pool and schema initialization |
-| `gui/server/src/routes/projects.ts` | Project list, sync, and raw read routes |
-| `gui/server/src/routes/cells.ts` | Cell CRUD and status transitions |
-| `gui/server/src/routes/dashboard.ts` | Aggregated dashboard data |
-| `gui/server/src/routes/mergeQueue.ts` | Merge queue management |
-| `gui/server/src/routes/git.ts` | Git file read and branch listing |
-| `gui/client/package.json` | Client dependencies and scripts |
-| `gui/client/tsconfig.json` | TypeScript config for client |
-| `gui/client/vite.config.ts` | Vite config with API proxy |
-| `gui/client/tailwind.config.js` | Tailwind CSS config |
-| `gui/client/postcss.config.js` | PostCSS config for Tailwind |
-| `gui/client/index.html` | HTML entry point |
-| `gui/client/src/main.tsx` | React app entry with routing |
-| `gui/client/src/index.css` | Tailwind directives |
-| `gui/client/src/api.ts` | API client with TypeScript types |
-| `gui/client/src/components/Layout.tsx` | App shell with navigation |
-| `gui/client/src/components/StatusBadge.tsx` | Colored status badge component |
-| `gui/client/src/pages/Dashboard.tsx` | Dashboard with capacity, alerts, activity |
-| `gui/client/src/pages/CellsList.tsx` | Filterable cells table |
-| `gui/client/src/pages/CellDetail.tsx` | Cell detail with tabs and transitions |
-| `gui/client/src/pages/CellCreate.tsx` | Cell creation form |
-| `gui/client/src/pages/Projects.tsx` | Project registry display |
-| `gui/client/src/pages/MergeQueue.tsx` | Ordered merge queue |
+## Verification Done
 
-## Test Status
+- `npm run build --workspace=client` from `gui/` passes
 
-- Server TypeScript compiles cleanly (`tsc --noEmit`)
-- Client TypeScript compiles cleanly (`tsc --noEmit`)
-- Client production build succeeds (`vite build`)
-- No test framework configured (project is documentation/coordination — no existing test infrastructure)
+## Local Run Blocker
+
+The local app can start, but the workflow API requires `GITHUB_TOKEN` when `/api/workflow` is requested.
+
+Relevant code:
+
+- `gui/server/src/lib/workflow.ts`
+  - `getOctokit()` throws `GITHUB_TOKEN environment variable is not set`
+
+This variable was not present in the shell environment when checked with `printenv`.
+
+## Tomorrow's First Steps
+
+1. Export `GITHUB_TOKEN` in the shell used to launch the server.
+2. Start the app from `gui/` with `npm run dev`.
+3. Verify the workflow board against live data:
+   - Healthy `in-progress` items should not show an extra warning badge
+   - Only genuinely risky `in-progress` items should show `At Risk`
+   - Project summary counts should reflect only risky items
+4. If the UX still feels ambiguous, consider removing the positive `On Track` branch entirely from `getIssueHealth()` and returning `null` for healthy items.
 
 ## Notes
 
-- The issue specifies 5 implementation phases. This PR covers Phase 1 (Foundation) and Phase 2-3 core features (cell detail, creation, status transitions). Phases 4-5 (drag-and-drop, Monaco editor, GitHub API integration, session checklists, mobile polish) can be follow-up work.
-- To run locally: `cd gui/server && npm run dev` and `cd gui/client && npm run dev`. Requires PostgreSQL with a `auto_shop_gui` database (or set `DATABASE_URL`).
+- `HANDOFF.md` previously described an older March 7 "GUI bootstrap complete" state and was stale relative to this branch.
+- The worktree contains many existing in-progress GUI changes outside today's fix. Do not treat this handoff as a full branch summary.

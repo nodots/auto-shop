@@ -15,6 +15,35 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
 // Shop floor
 export const fetchShopFloor = () => fetchJson<ShopFloorData>('/shop-floor');
 
+// Workflow
+export const fetchWorkflowOverview = (params?: { refresh?: boolean }) => {
+  const qs = new URLSearchParams();
+  if (params?.refresh) qs.set('refresh', 'true');
+  const query = qs.toString();
+  return fetchJson<WorkflowOverview>(`/workflow${query ? '?' + query : ''}`);
+};
+
+export const fetchWorkflowIssue = (issueRef: string) =>
+  fetchJson<WorkflowIssueDetail>(`/workflow/issues/${encodeURIComponent(issueRef)}`);
+
+export const updateWorkflowIssue = (
+  issueRef: string,
+  data: WorkflowIssueUpdateInput
+) =>
+  fetchJson<WorkflowIssueDetail>(`/workflow/issues/${encodeURIComponent(issueRef)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+
+export const createExecutionForIssue = (
+  issueRef: string,
+  data?: { feature?: string; branch?: string; scope?: object | null }
+) =>
+  fetchJson<WorkflowIssueDetail>(`/workflow/issues/${encodeURIComponent(issueRef)}/execution`, {
+    method: 'POST',
+    body: JSON.stringify(data || {}),
+  });
+
 // Accounts
 export const fetchAccountsRaw = () => fetchJson<Record<string, AccountData>>('/accounts/raw');
 export const fetchAccounts = () => fetchJson<AccountRow[]>('/accounts');
@@ -81,6 +110,98 @@ export interface ShopFloorData {
   blockedCells: BayRow[];
   readyPRs: BayRow[];
   recentActivity: (BayStatusHistoryRow & { feature: string; project: string })[];
+}
+
+export interface WorkflowExecutionSummary {
+  id: number;
+  feature: string;
+  project: string;
+  branch: string;
+  status: 'queued' | 'active' | 'blocked' | 'awaiting-review' | 'merged';
+  scope: object | null;
+  blocker: string | null;
+  handoff: string | null;
+  githubIssueUrl: string | null;
+  githubPrUrl: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+}
+
+export interface WorkflowIssueSummary {
+  id: number;
+  number: number;
+  title: string;
+  body: string;
+  labels: string[];
+  repo: string;
+  project: string;
+  htmlUrl: string;
+  issueRef: string;
+  createdAt: string;
+  updatedAt: string;
+  closedAt: string | null;
+  githubState: 'open' | 'closed';
+  user: string;
+  assignee: string | null;
+  comments: number;
+  workflowState: import('./workflow').WorkflowState;
+  workflowSource: 'promotion' | 'approval' | 'execution' | 'label' | 'default';
+  linkedExecution: WorkflowExecutionSummary | null;
+  linkedPullRequest: {
+    number: number;
+    url: string;
+    baseRefName: string;
+    mergedAt: string | null;
+    state: 'open' | 'closed';
+  } | null;
+  inShippingQueue: boolean;
+  shippingMode: 'branch' | 'approval';
+  shippingBranch: string | null;
+  mainBranch: string;
+}
+
+export interface WorkflowProjectSummary {
+  name: string;
+  repo: string;
+  issueCount: number;
+  executionCount: number;
+  states: Record<import('./workflow').WorkflowState, WorkflowIssueSummary[]>;
+}
+
+export interface WorkflowOverview {
+  updatedAt: string;
+  states: import('./workflow').WorkflowState[];
+  totals: Record<import('./workflow').WorkflowState, number>;
+  projects: WorkflowProjectSummary[];
+}
+
+export interface WorkflowIssueDetail extends WorkflowIssueSummary {
+  commentsList: {
+    id: number;
+    author: string;
+    body: string;
+    createdAt: string;
+  }[];
+  history: {
+    id: number;
+    fromStatus: string | null;
+    toStatus: string;
+    changedAt: string | null;
+    note: string | null;
+  }[];
+}
+
+export interface WorkflowIssueUpdateInput {
+  title?: string;
+  body?: string;
+  comment?: string;
+  assignee?: string | null;
+  workflowState?: import('./workflow').MutableWorkflowState;
+  scope?: object | null;
+  blocker?: string | null;
+  handoff?: string | null;
+  githubPrUrl?: string | null;
+  inShippingQueue?: boolean;
 }
 
 export interface AccountData {

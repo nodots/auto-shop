@@ -9,6 +9,7 @@ import releaseLaneRouter from './routes/releaseLane.js';
 import gitRouter from './routes/git.js';
 import dispatchBoardRouter from './routes/dispatchBoard.js';
 import repairOrdersRouter from './routes/repairOrders.js';
+import workflowRouter from './routes/workflow.js';
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '3400', 10);
@@ -30,6 +31,7 @@ app.use('/api/dispatch', dispatchBoardRouter);
 app.use('/api/scheduler', dispatchBoardRouter);
 app.use('/api/repair-orders', repairOrdersRouter);
 app.use('/api/issues', repairOrdersRouter);
+app.use('/api/workflow', workflowRouter);
 
 // Health check
 app.get('/api/health', (_req, res) => {

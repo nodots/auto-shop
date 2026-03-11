@@ -29,27 +29,32 @@ export default function Accounts() {
   const fields = (account: AccountData) => [
     ['Repository', account.repo],
     ['Default Branch', account.defaultBranch],
-    ['Service Branch', account.featureTarget],
+    ['Feature Target', account.featureTarget],
     ['Promotion Path', account.promotionPath.join(' \u2192 ')],
   ];
 
   return (
     <Stack spacing={3}>
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <Typography variant="h5" fontWeight="bold">Accounts</Typography>
+        <Box>
+          <Typography variant="h4" fontWeight={800}>Projects</Typography>
+          <Typography color="text.secondary">
+            Repository and branch metadata for tracked projects.
+          </Typography>
+        </Box>
         <Button
           variant="contained"
           size="small"
           onClick={() => syncMutation.mutate()}
           disabled={syncMutation.isPending}
         >
-          {syncMutation.isPending ? 'Syncing...' : 'Sync Accounts'}
+          {syncMutation.isPending ? 'Syncing...' : 'Sync Projects'}
         </Button>
       </Box>
 
       {syncMutation.isSuccess && (
         <Alert severity="success">
-          Synced {syncMutation.data?.synced} account(s) to the service desk
+          Synced {syncMutation.data?.synced} project(s)
         </Alert>
       )}
 

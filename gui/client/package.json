@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "../scripts/run-on-port.sh 5473 vite --port 5473",
+    "dev": "vite --port 5473",
     "build": "tsc -b && vite build",
     "preview": "vite preview"
   },

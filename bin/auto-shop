@@ -750,7 +750,16 @@ function schedulerStart() {
   if (running) {
     error(`Dispatch board is already running (PID ${running}). Use 'auto-shop dispatch stop' first.`);
   }
-  scheduler.start();
+
+  if (process.argv.includes('--foreground')) {
+    scheduler.start();
+    return;
+  }
+
+  const launched = scheduler.startDaemon();
+  success(`Dispatch board started in background (PID ${launched.pid})`);
+  info(`API: http://localhost:${scheduler.API_PORT}`);
+  info(`Logs: ${launched.logPath}`);
 }
 
 function schedulerStatus() {
@@ -942,9 +951,10 @@ COMMANDS:
                           - Uses the same --state and --limit flags as writeup
 
   dispatch start          Start the dispatch board daemon
-                          - Polls all repos for claude-ready repair orders every 5 min
+                          - Polls all repos for dispatch-ready repair orders every 5 min
                           - Maintains up to 4 concurrent claude --remote sessions
                           - Exposes API on port 3401 for GUI monitoring
+                          - Runs in the background
                           - Labels progress from ready to in-service to inspection
 
   dispatch status         Show dispatch board status

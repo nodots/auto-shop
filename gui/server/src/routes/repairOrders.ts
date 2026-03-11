@@ -4,6 +4,8 @@ import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import { db } from '../db.js';
 import { cells } from '../db/schema.js';
+import { parseExcludeLabels, filterByExcludedLabels } from '../repairOrderFilters.js';
+import type { RepairOrder } from '../repairOrderFilters.js';
 
 const router = Router();
 
@@ -17,22 +19,6 @@ interface ProjectsConfig {
 interface CachedIssues {
   data: RepairOrder[];
   fetchedAt: number;
-}
-
-interface RepairOrder {
-  id: number;
-  number: number;
-  title: string;
-  labels: string[];
-  repo: string;
-  project: string;
-  html_url: string;
-  created_at: string;
-  updated_at: string;
-  user: string;
-  assignee: string | null;
-  comments: number;
-  inCell: boolean;
 }
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
@@ -64,6 +50,7 @@ router.get('/', async (req, res) => {
 
   const projectFilter = (req.query.account || req.query.project) as string | undefined;
   const forceRefresh = req.query.refresh === 'true';
+  const excludeLabels = parseExcludeLabels(req.query.excludeLabels as string | undefined);
 
   try {
     const repoMap = loadRepoMap();
@@ -141,10 +128,13 @@ router.get('/', async (req, res) => {
       // DB may not be available; skip cross-reference
     }
 
-    // Sort by updated_at descending
-    allIssues.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
+    // Filter out issues matching excluded labels
+    const filtered = filterByExcludedLabels(allIssues, excludeLabels);
 
-    res.json(allIssues);
+    // Sort by updated_at descending
+    filtered.sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
+
+    res.json(filtered);
   } catch (err) {
     res.status(500).json({ error: String(err) });
   }

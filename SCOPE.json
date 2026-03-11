@@ -1,0 +1,20 @@
+{
+  "feature": "Exclude epics from the main workflow board by default",
+  "project": "auto-shop",
+  "branch": "feat/exclude-epics-from-the-main-workflow-board-by-default",
+  "createdAt": "2026-03-11",
+  "allowedPaths": [],
+  "forbiddenPaths": [
+    "contracts/**",
+    "src/types/shared/**",
+    "package.json",
+    "package-lock.json",
+    "tsconfig.json",
+    "tsconfig.*.json",
+    ".github/**",
+    "scripts/**"
+  ],
+  "dependsOn": [],
+  "blockedBy": [],
+  "estimatedScope": ""
+}

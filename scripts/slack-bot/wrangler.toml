@@ -1,0 +1,14 @@
+name = "auto-shop-slack-bot"
+main = "src/index.ts"
+compatibility_date = "2025-03-01"
+
+# Secrets (set via `wrangler secret put`):
+#   SLACK_BOT_TOKEN      - xoxb-... Bot User OAuth Token
+#   SLACK_SIGNING_SECRET - Slack app signing secret
+#   GITHUB_TOKEN         - GitHub PAT with repo scope
+#
+# Do NOT commit these values. Use `wrangler secret put <NAME>` to set them.
+
+[vars]
+GITHUB_OWNER = "nodots"
+GITHUB_REPO = "auto-shop"

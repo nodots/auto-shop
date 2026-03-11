@@ -103,9 +103,13 @@ cp "$AUTO_SHOP_ROOT/scripts/hooks/check-handoff-on-stop.sh" \
 cp "$AUTO_SHOP_ROOT/scripts/hooks/session-start-install-deps.sh" \
    "$REPO_PATH/.claude/hooks/session-start-install-deps.sh"
 
+cp "$AUTO_SHOP_ROOT/scripts/hooks/notify-slack-posttooluse.sh" \
+   "$REPO_PATH/.claude/hooks/notify-slack-posttooluse.sh"
+
 chmod +x "$REPO_PATH/.claude/hooks/check-handoff-on-complete.sh"
 chmod +x "$REPO_PATH/.claude/hooks/check-handoff-on-stop.sh"
 chmod +x "$REPO_PATH/.claude/hooks/session-start-install-deps.sh"
+chmod +x "$REPO_PATH/.claude/hooks/notify-slack-posttooluse.sh"
 
 # --- Step 3: Find or install minimatch ---
 echo "Checking for minimatch..."
@@ -183,6 +187,18 @@ cat > "$REPO_PATH/.claude/settings.json" << SETTINGS_EOF
         ]
       }
     ],
+
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash .claude/hooks/notify-slack-posttooluse.sh"
+          }
+        ]
+      }
+    ],
     "Stop": [
       {
         "matcher": "",
@@ -249,6 +265,7 @@ echo "  .claude/hooks/enforce-scope-pretooluse.js"
 echo "  .claude/hooks/check-handoff-on-complete.sh"
 echo "  .claude/hooks/check-handoff-on-stop.sh"
 echo "  .claude/hooks/session-start-install-deps.sh"
+echo "  .claude/hooks/notify-slack-posttooluse.sh"
 echo "  .claude/agents/cell-worker-${PROJECT_NAME}.md"
 echo ""
 echo "Next steps:"

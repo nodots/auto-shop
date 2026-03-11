@@ -1,0 +1,79 @@
+name: Slack — Stale Cell Check
+
+on:
+  schedule:
+    # Run daily at 9:00 AM UTC (5:00 AM ET)
+    - cron: '0 9 * * *'
+  workflow_dispatch: {}
+
+jobs:
+  check-stale:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: read
+    steps:
+      - name: Find stale active cells
+        id: stale
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Get issues labeled cell:active, created more than 3 days ago
+          THREE_DAYS_AGO=$(date -u -d '3 days ago' +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -v-3d +%Y-%m-%dT%H:%M:%SZ)
+
+          STALE_ISSUES=$(gh issue list \
+            --repo "${{ github.repository }}" \
+            --label "cell:active" \
+            --json number,title,createdAt,url \
+            --jq "[.[] | select(.createdAt < \"$THREE_DAYS_AGO\")]")
+
+          COUNT=$(echo "$STALE_ISSUES" | jq 'length')
+          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+
+          if [ "$COUNT" -gt 0 ]; then
+            # Build a markdown list for the Slack message
+            ITEMS=$(echo "$STALE_ISSUES" | jq -r '.[] | "- <\(.url)|#\(.number) \(.title)> (created \(.createdAt | split("T")[0]))"')
+            # Escape for JSON
+            ITEMS_ESCAPED=$(echo "$ITEMS" | jq -Rs .)
+            echo "items=$ITEMS_ESCAPED" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Send stale cell alert
+        if: steps.stale.outputs.count != '0'
+        env:
+          SLACK_WEBHOOK_ALERTS: ${{ secrets.SLACK_WEBHOOK_ALERTS }}
+          STALE_COUNT: ${{ steps.stale.outputs.count }}
+          STALE_ITEMS: ${{ steps.stale.outputs.items }}
+        run: |
+          if [ -z "$SLACK_WEBHOOK_ALERTS" ]; then
+            echo "SLACK_WEBHOOK_ALERTS secret not configured — skipping"
+            exit 0
+          fi
+
+          # Remove JSON string wrapping from items
+          ITEMS_TEXT=$(echo "$STALE_ITEMS" | jq -r .)
+
+          cat > /tmp/slack-stale.json << STALE_EOF
+          {
+            "text": ":hourglass: ${STALE_COUNT} cell(s) active for more than 3 days",
+            "blocks": [
+              {
+                "type": "header",
+                "text": {
+                  "type": "plain_text",
+                  "text": "Stale Cell Report"
+                }
+              },
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": ":hourglass: *${STALE_COUNT} cell(s) active for more than 3 days:*\n${ITEMS_TEXT}\n\nConsider checking on these cells or marking them as blocked."
+                }
+              }
+            ]
+          }
+          STALE_EOF
+          curl -s -X POST -H 'Content-type: application/json' \
+            --data @/tmp/slack-stale.json \
+            "$SLACK_WEBHOOK_ALERTS"

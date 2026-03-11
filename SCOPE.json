@@ -1,0 +1,20 @@
+{
+  "feature": "Integrate auto-shop with Slack for cell notifications and coordinator commands",
+  "project": "auto-shop",
+  "branch": "feat/integrate-auto-shop-with-slack-for-cell-notifications-and-coordinator-commands",
+  "createdAt": "2026-03-11",
+  "allowedPaths": [],
+  "forbiddenPaths": [
+    "contracts/**",
+    "src/types/shared/**",
+    "package.json",
+    "package-lock.json",
+    "tsconfig.json",
+    "tsconfig.*.json",
+    ".github/**",
+    "scripts/**"
+  ],
+  "dependsOn": [],
+  "blockedBy": [],
+  "estimatedScope": ""
+}

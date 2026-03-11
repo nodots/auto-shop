@@ -53,7 +53,42 @@ process.stdin.on('end', () => {
         `Scope violation: ${relativePath} is outside SCOPE.json allowedPaths. ` +
         `Write BLOCKER.md if you need to modify this file.`
       );
-      process.exit(2);
+
+      // Send async Slack notification for scope violations
+      const webhookUrl = process.env.SLACK_WEBHOOK_ALERTS;
+      if (webhookUrl) {
+        const feature = scope.feature || 'unknown';
+        const project = scope.project || 'unknown';
+        const branch = scope.branch || 'unknown';
+        const payload = JSON.stringify({
+          text: `:warning: Scope violation in ${project}: ${relativePath}`,
+          blocks: [{
+            type: 'section',
+            text: {
+              type: 'mrkdwn',
+              text: `:warning: *Scope Violation*\nFeature: *${feature}*\nProject: \`${project}\`\nBranch: \`${branch}\`\nFile: \`${relativePath}\``
+            }
+          }]
+        });
+        // Fire-and-forget — do not block the hook on network
+        const https = require('https');
+        const url = new URL(webhookUrl);
+        const req = https.request({
+          hostname: url.hostname,
+          path: url.pathname,
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          timeout: 3000
+        });
+        req.on('error', () => {});
+        req.write(payload);
+        req.end();
+        // Brief delay so the request can fire before process exits
+        setTimeout(() => process.exit(2), 200);
+      } else {
+        process.exit(2);
+      }
+      return;
     }
 
     process.exit(0);

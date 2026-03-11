@@ -7,34 +7,34 @@ Issue: https://github.com/nodots/auto-shop/issues/38
 
 ## What Was Done
 
-- Added `excludeLabels` query parameter to the `/api/repair-orders` endpoint, accepting a comma-separated list of label names to exclude
-- Server-side filtering removes issues whose labels match any excluded label (case-insensitive)
-- Added "Hide epics" toggle (Switch) to the ShopFloor Waiting Lot header, defaulting to on
-- The React Query key includes the `hideEpics` state so toggling triggers a fresh fetch
-- Updated `fetchRepairOrders` in the client API to pass `excludeLabels` when applicable
-- Bay Board counts and the "Jobs Ready" metric automatically reflect the filtered data since they derive from the same query
+- Verified that ShopFloor.tsx already excludes `epic`-labeled issues by default via `hideEpics` state (default: `true`) and the `excludeLabels` query parameter
+- Verified that project counts and "Jobs Ready" metric derive from filtered repair order data, so they correctly exclude epics when hidden
+- Verified that the "Hide epics" toggle in the Waiting Lot section allows re-enabling epic visibility
+- Extracted `parseExcludeLabels` and `filterByExcludedLabels` into a dedicated `repairOrderFilters.ts` module for testability
+- Refactored `repairOrders.ts` route to use the extracted functions (no behavior change)
+- Added vitest to the server package
+- Added 12 unit tests covering label parsing, case-insensitive matching, multi-label exclusion, and edge cases
 
 ## Key Decisions
 
-- Filtering is done server-side (after GitHub API fetch but before response) rather than client-side, so counts are consistent without extra logic
-- The `excludeLabels` param is generic (comma-separated label list) rather than a hard-coded `?hideEpics=true` flag, making it reusable for other label-based filters
-- The toggle defaults to on (epics hidden) per the issue requirements
+- The epic filtering was already implemented in ShopFloor.tsx (default hidden, toggle to show). Rather than duplicating or restructuring, the work focused on making the filtering logic testable and adding coverage as specified in the issue scope.
+- Extracted filtering into a pure-function module rather than testing through the Express route, which would require mocking Octokit and the database.
 
 ## Files Modified
 
 | File | Change |
 |------|--------|
-| `gui/server/src/routes/repairOrders.ts` | Parse `excludeLabels` query param and filter issues before response |
-| `gui/client/src/serviceDeskApi.ts` | Add `excludeLabels` option to `fetchRepairOrders` params |
-| `gui/client/src/pages/ShopFloor.tsx` | Add `hideEpics` state (default true), toggle Switch in Waiting Lot, pass `excludeLabels` to query |
+| `gui/server/src/repairOrderFilters.ts` | New module with `parseExcludeLabels` and `filterByExcludedLabels` functions plus the `RepairOrder` type |
+| `gui/server/src/routes/repairOrders.ts` | Import and use extracted functions instead of inline logic; re-export `RepairOrder` type from the shared module |
+| `gui/server/src/__tests__/repairOrderFilters.test.ts` | 12 unit tests for the filtering behavior |
+| `gui/server/package.json` | Added vitest devDependency and `test` script |
 
 ## Test Status
 
-- Server TypeScript compiles cleanly (`tsc --noEmit`)
-- Client TypeScript compiles cleanly (`tsc --noEmit`)
-- Client production build succeeds (`vite build`)
-- No test framework configured in the project
+- 12 tests pass (vitest)
+- Server TypeScript compiles cleanly
+- Client TypeScript compiles cleanly
 
 ## Notes
 
-- The server caches GitHub API responses for 5 minutes. Toggling "Hide epics" triggers a new API call to the Express server, but the GitHub data may come from cache. The filtering happens after cache retrieval, so the toggle is responsive even with cached data.
+- The DispatchBoard (scheduler) has its own waiting lot that fetches issues from the scheduler daemon. Epic exclusion there is a separate concern not covered by this issue.

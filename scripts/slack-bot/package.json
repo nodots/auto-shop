@@ -9,10 +9,6 @@
     "deploy": "wrangler deploy",
     "typecheck": "tsc --noEmit"
   },
-  "dependencies": {
-    "@slack/bolt": "^4.1.0",
-    "slack-bolt-cloudflare-workers": "^1.0.0"
-  },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20250310.0",
     "typescript": "^5.7.0",

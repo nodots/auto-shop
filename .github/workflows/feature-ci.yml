@@ -58,3 +58,46 @@ jobs:
           git rebase origin/main
           npm ci
           npm test
+
+  notify-slack:
+    runs-on: ubuntu-latest
+    needs: [validate, integration-check]
+    if: failure()
+    permissions:
+      contents: read
+    steps:
+      - name: Notify Slack of CI failure
+        env:
+          SLACK_WEBHOOK_ALERTS: ${{ secrets.SLACK_WEBHOOK_ALERTS }}
+        run: |
+          if [ -z "$SLACK_WEBHOOK_ALERTS" ]; then
+            echo "SLACK_WEBHOOK_ALERTS secret not configured — skipping"
+            exit 0
+          fi
+          cat > /tmp/slack-ci.json << 'CI_EOF'
+          {
+            "text": ":x: CI failed on ${{ github.ref_name }}",
+            "blocks": [
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": ":x: *CI Failed*\nBranch: `${{ github.ref_name }}`\nCommit: `${{ github.sha }}`\nPushed by: *${{ github.actor }}*"
+                }
+              },
+              {
+                "type": "actions",
+                "elements": [
+                  {
+                    "type": "button",
+                    "text": { "type": "plain_text", "text": "View Run" },
+                    "url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                  }
+                ]
+              }
+            ]
+          }
+          CI_EOF
+          curl -s -X POST -H 'Content-type: application/json' \
+            --data @/tmp/slack-ci.json \
+            "$SLACK_WEBHOOK_ALERTS"

@@ -1,0 +1,106 @@
+name: Slack — Cell Status Change
+
+on:
+  issues:
+    types: [labeled, unlabeled]
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    if: startsWith(github.event.label.name, 'cell:')
+    permissions:
+      contents: read
+      issues: read
+    steps:
+      - name: Build notification payload
+        id: payload
+        env:
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_URL: ${{ github.event.issue.html_url }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          LABEL_NAME: ${{ github.event.label.name }}
+          ACTION: ${{ github.event.action }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          # Map label to emoji
+          case "$LABEL_NAME" in
+            cell:active)   EMOJI=":large_green_circle:" ;;
+            cell:blocked)  EMOJI=":red_circle:" ;;
+            cell:queued)   EMOJI=":white_circle:" ;;
+            cell:awaiting-review) EMOJI=":eyes:" ;;
+            cell:merged)   EMOJI=":white_check_mark:" ;;
+            cell:contract-change) EMOJI=":warning:" ;;
+            *)             EMOJI=":label:" ;;
+          esac
+
+          if [ "$ACTION" = "labeled" ]; then
+            VERB="moved to"
+          else
+            VERB="removed from"
+          fi
+
+          # Write payload to file to avoid shell escaping issues
+          cat > /tmp/slack-payload.json << PAYLOAD_EOF
+          {
+            "channel": "auto-shop-cells",
+            "text": "${EMOJI} #${ISSUE_NUMBER} *${ISSUE_TITLE}* ${VERB} \`${LABEL_NAME}\` by ${ACTOR}",
+            "blocks": [
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "${EMOJI} <${ISSUE_URL}|#${ISSUE_NUMBER} ${ISSUE_TITLE}>\n${VERB} \`${LABEL_NAME}\` by *${ACTOR}*"
+                }
+              }
+            ]
+          }
+          PAYLOAD_EOF
+
+      - name: Send to #auto-shop-cells
+        env:
+          SLACK_WEBHOOK_CELLS: ${{ secrets.SLACK_WEBHOOK_CELLS }}
+        run: |
+          if [ -z "$SLACK_WEBHOOK_CELLS" ]; then
+            echo "SLACK_WEBHOOK_CELLS secret not configured — skipping"
+            exit 0
+          fi
+          curl -s -X POST -H 'Content-type: application/json' \
+            --data @/tmp/slack-payload.json \
+            "$SLACK_WEBHOOK_CELLS"
+
+      - name: Send to #auto-shop-alerts (blockers only)
+        if: github.event.label.name == 'cell:blocked' && github.event.action == 'labeled'
+        env:
+          SLACK_WEBHOOK_ALERTS: ${{ secrets.SLACK_WEBHOOK_ALERTS }}
+        run: |
+          if [ -z "$SLACK_WEBHOOK_ALERTS" ]; then
+            echo "SLACK_WEBHOOK_ALERTS secret not configured — skipping"
+            exit 0
+          fi
+          cat > /tmp/slack-alert.json << 'ALERT_EOF'
+          {
+            "text": ":rotating_light: BLOCKED: #${{ github.event.issue.number }} ${{ github.event.issue.title }}",
+            "blocks": [
+              {
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": ":rotating_light: *Cell Blocked*\n<${{ github.event.issue.html_url }}|#${{ github.event.issue.number }} ${{ github.event.issue.title }}>\nLabeled by *${{ github.actor }}* — check BLOCKER.md on the feature branch"
+                }
+              },
+              {
+                "type": "actions",
+                "elements": [
+                  {
+                    "type": "button",
+                    "text": { "type": "plain_text", "text": "View Issue" },
+                    "url": "${{ github.event.issue.html_url }}"
+                  }
+                ]
+              }
+            ]
+          }
+          ALERT_EOF
+          curl -s -X POST -H 'Content-type: application/json' \
+            --data @/tmp/slack-alert.json \
+            "$SLACK_WEBHOOK_ALERTS"

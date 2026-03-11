@@ -12,11 +12,10 @@ import { alpha, useTheme } from '@mui/material/styles';
 import { useThemeMode } from '../ThemeContext';
 
 const navItems = [
-  { to: '/', label: 'Shop Floor' },
-  { to: '/bays', label: 'Bays' },
-  { to: '/accounts', label: 'Accounts' },
-  { to: '/release-lane', label: 'Release Lane' },
-  { to: '/dispatch', label: 'Dispatch Board' },
+  { to: '/', label: 'Workflow' },
+  { to: '/active-work', label: 'Active Work' },
+  { to: '/delivery', label: 'Delivery' },
+  { to: '/projects', label: 'Projects' },
 ];
 
 export default function Layout() {
@@ -30,20 +29,9 @@ export default function Layout() {
         display: 'flex',
         flexDirection: 'column',
         minHeight: '100vh',
-        background:
-          isDark
-            ? `radial-gradient(circle at top left, ${alpha('#d62828', 0.32)}, transparent 28%), radial-gradient(circle at top right, ${alpha('#fffaf2', 0.08)}, transparent 24%), linear-gradient(180deg, ${theme.palette.background.default} 0%, #050505 100%)`
-            : `radial-gradient(circle at top left, ${alpha('#d62828', 0.16)}, transparent 28%), radial-gradient(circle at top right, ${alpha('#111111', 0.08)}, transparent 30%), linear-gradient(180deg, ${theme.palette.background.default} 0%, #efe4d0 100%)`,
-        '&::before': {
-          content: '""',
-          position: 'fixed',
-          inset: 0,
-          pointerEvents: 'none',
-          background:
-            'linear-gradient(45deg, rgba(17,17,17,0.07) 25%, transparent 25%, transparent 50%, rgba(17,17,17,0.07) 50%, rgba(17,17,17,0.07) 75%, transparent 75%, transparent)',
-          backgroundSize: '24px 24px',
-          opacity: isDark ? 0.08 : 0.1,
-        },
+        background: isDark
+          ? `linear-gradient(180deg, ${theme.palette.background.default} 0%, #0f1726 100%)`
+          : `linear-gradient(180deg, ${theme.palette.background.default} 0%, #f4f7fd 100%)`,
       }}
     >
       <AppBar
@@ -53,18 +41,18 @@ export default function Layout() {
         sx={{
           backdropFilter: 'blur(10px)',
           background: isDark
-            ? 'linear-gradient(180deg, rgba(10,10,10,0.88), rgba(10,10,10,0.68))'
-            : 'linear-gradient(180deg, rgba(255,250,242,0.94), rgba(255,250,242,0.78))',
-          borderBottom: `3px solid ${theme.palette.primary.main}`,
-          boxShadow: `0 6px 0 ${alpha('#111111', isDark ? 0.6 : 0.14)}`,
+            ? 'rgba(11,18,32,0.88)'
+            : 'rgba(248,251,255,0.9)',
+          borderBottom: `1px solid ${alpha(theme.palette.primary.main, 0.35)}`,
+          boxShadow: 'none',
         }}
       >
         <Toolbar
           sx={{
             gap: 2,
             px: { xs: 2, sm: 3.5, lg: 5 },
-            py: { xs: 1.25, sm: 1.5 },
-            minHeight: { xs: 88, sm: 96 },
+            py: { xs: 0.75, sm: 0.9 },
+            minHeight: { xs: 64, sm: 68 },
           }}
         >
           <Box
@@ -81,11 +69,11 @@ export default function Layout() {
           >
             <Box
               sx={{
-                width: 22,
-                height: 22,
-                borderRadius: '999px',
-                background: 'radial-gradient(circle at 35% 35%, #fffaf2 0 18%, #d62828 20% 58%, #111111 62% 100%)',
-                boxShadow: `0 0 0 8px ${alpha(theme.palette.primary.main, 0.18)}`,
+                width: 18,
+                height: 18,
+                borderRadius: 4,
+                background: theme.palette.primary.main,
+                boxShadow: `0 0 0 4px ${alpha(theme.palette.primary.main, 0.12)}`,
               }}
             />
             <Box>
@@ -94,15 +82,14 @@ export default function Layout() {
                 sx={{
                   lineHeight: 1,
                   fontWeight: 800,
-                  letterSpacing: '0.04em',
-                  fontFamily: '"Alfa Slab One", serif',
-                  textTransform: 'lowercase',
+                  letterSpacing: '-0.03em',
+                  fontFamily: '"Space Grotesk", sans-serif',
                 }}
               >
-                nodots auto shop
+                auto-shop
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                custom code garage
+                workflow coordination interface
               </Typography>
             </Box>
           </Box>
@@ -122,15 +109,14 @@ export default function Layout() {
                 end={item.to === '/' ? true : undefined}
                 sx={{
                   color: 'text.primary',
-                  textTransform: 'uppercase',
-                  borderRadius: '999px',
+                  borderRadius: 2,
                   px: 1.75,
                   py: 0.7,
-                  fontFamily: '"Bebas Neue", sans-serif',
-                  fontSize: '1rem',
-                  letterSpacing: '0.08em',
+                  fontFamily: '"IBM Plex Sans", sans-serif',
+                  fontSize: '0.95rem',
+                  letterSpacing: '-0.01em',
                   border: `1px solid ${alpha(theme.palette.text.primary, isDark ? 0.2 : 0.12)}`,
-                  backgroundColor: alpha(theme.palette.background.paper, isDark ? 0.35 : 0.7),
+                  backgroundColor: alpha(theme.palette.background.paper, isDark ? 0.22 : 0.85),
                   '&.active': {
                     backgroundColor: theme.palette.primary.main,
                     color: theme.palette.primary.contrastText,
@@ -148,7 +134,8 @@ export default function Layout() {
             aria-label="Toggle dark mode"
             sx={{
               border: `1px solid ${alpha(theme.palette.text.primary, isDark ? 0.18 : 0.1)}`,
-              bgcolor: alpha(theme.palette.background.paper, isDark ? 0.32 : 0.75),
+              borderRadius: 2,
+              bgcolor: alpha(theme.palette.background.paper, isDark ? 0.22 : 0.85),
             }}
           >
             {mode === 'light' ? <DarkModeIcon /> : <LightModeIcon />}

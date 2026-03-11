@@ -5,7 +5,7 @@ import { cells, mergeQueue } from '../db/schema.js';
 
 const router = Router();
 
-// GET /api/release-lane
+// GET /api/merge-queue
 router.get('/', async (_req, res) => {
   try {
     const rows = await db
@@ -31,7 +31,7 @@ router.get('/', async (_req, res) => {
   }
 });
 
-// POST /api/release-lane — add bay to release lane
+// POST /api/merge-queue — add cell to merge queue
 router.post('/', async (req, res) => {
   try {
     const { cell_id, depends_on } = req.body;
@@ -58,7 +58,7 @@ router.post('/', async (req, res) => {
   }
 });
 
-// PATCH /api/release-lane/reorder — reorder the release lane
+// PATCH /api/merge-queue/reorder — reorder the merge queue
 router.patch('/reorder', async (req, res) => {
   try {
     const { order } = req.body;
@@ -96,7 +96,7 @@ router.patch('/reorder', async (req, res) => {
   }
 });
 
-// DELETE /api/release-lane/:id
+// DELETE /api/merge-queue/:id
 router.delete('/:id', async (req, res) => {
   try {
     const [deleted] = await db
@@ -105,7 +105,7 @@ router.delete('/:id', async (req, res) => {
       .returning();
 
     if (!deleted) {
-      return res.status(404).json({ error: 'Release-lane entry not found' });
+      return res.status(404).json({ error: 'Merge queue entry not found' });
     }
 
     res.json({ deleted });

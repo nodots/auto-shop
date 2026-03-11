@@ -1,40 +1,26 @@
-# Handoff: Exclude epics from the main workflow board by default
+# Handoff: Workflow-first UI on main
 
 Date: 2026-03-11
-Status: complete
-Branch: feat/exclude-epics-from-the-main-workflow-board-by-default
-Issue: https://github.com/nodots/auto-shop/issues/38
+Status: in progress
+Branch: main
 
-## What Was Done
+## Summary
 
-- Verified that ShopFloor.tsx already excludes `epic`-labeled issues by default via `hideEpics` state (default: `true`) and the `excludeLabels` query parameter
-- Verified that project counts and "Jobs Ready" metric derive from filtered repair order data, so they correctly exclude epics when hidden
-- Verified that the "Hide epics" toggle in the Waiting Lot section allows re-enabling epic visibility
-- Extracted `parseExcludeLabels` and `filterByExcludedLabels` into a dedicated `repairOrderFilters.ts` module for testability
-- Refactored `repairOrders.ts` route to use the extracted functions (no behavior change)
-- Added vitest to the server package
-- Added 12 unit tests covering label parsing, case-insensitive matching, multi-label exclusion, and edge cases
+- The workflow-first coordinator UI is now the authoritative local UI direction.
+- The old bay/shop-floor UI has been removed from the main app entry path.
+- Dispatch remains isolated in per-issue worktrees under `.scheduler/worktrees/...`.
 
-## Key Decisions
+## Current Focus
 
-- The epic filtering was already implemented in ShopFloor.tsx (default hidden, toggle to show). Rather than duplicating or restructuring, the work focused on making the filtering logic testable and adding coverage as specified in the issue scope.
-- Extracted filtering into a pure-function module rather than testing through the Express route, which would require mocking Octokit and the database.
+- Merge the workflow UI and dispatch/dashboard fixes onto `main`.
+- Run the local stack from the main checkout instead of the runtime worktree.
+- Keep GitHub label state and dashboard workflow state aligned.
 
-## Files Modified
+## Verification
 
-| File | Change |
-|------|--------|
-| `gui/server/src/repairOrderFilters.ts` | New module with `parseExcludeLabels` and `filterByExcludedLabels` functions plus the `RepairOrder` type |
-| `gui/server/src/routes/repairOrders.ts` | Import and use extracted functions instead of inline logic; re-export `RepairOrder` type from the shared module |
-| `gui/server/src/__tests__/repairOrderFilters.test.ts` | 12 unit tests for the filtering behavior |
-| `gui/server/package.json` | Added vitest devDependency and `test` script |
-
-## Test Status
-
-- 12 tests pass (vitest)
-- Server TypeScript compiles cleanly
-- Client TypeScript compiles cleanly
+- `gui/client` production build should pass after the merge is finalized.
+- `gui/server` TypeScript build should pass after the merge is finalized.
 
 ## Notes
 
-- The DispatchBoard (scheduler) has its own waiting lot that fetches issues from the scheduler daemon. Epic exclusion there is a separate concern not covered by this issue.
+- `restart-stack.sh` still reflects the older runtime-worktree model and should be updated separately.

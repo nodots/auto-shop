@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
-  fetchReleaseLane,
+  fetchMergeQueue,
   fetchWorkflowOverview,
   type WorkflowIssueSummary,
 } from '../serviceDeskApi';
@@ -26,9 +26,9 @@ export default function Delivery() {
     queryKey: ['workflow-overview'],
     queryFn: () => fetchWorkflowOverview(),
   });
-  const releaseQuery = useQuery({
-    queryKey: ['release-lane'],
-    queryFn: fetchReleaseLane,
+  const mergeQueueQuery = useQuery({
+    queryKey: ['merge-queue'],
+    queryFn: fetchMergeQueue,
   });
 
   if (workflowQuery.isLoading) return <CircularProgress />;
@@ -75,15 +75,15 @@ export default function Delivery() {
         <Typography variant="h6" fontWeight={800} gutterBottom>
           Merge Queue
         </Typography>
-        {releaseQuery.isLoading ? (
+        {mergeQueueQuery.isLoading ? (
           <CircularProgress size={24} />
-        ) : releaseQuery.error ? (
+        ) : mergeQueueQuery.error ? (
           <Alert severity="info">Merge queue data is unavailable.</Alert>
-        ) : !releaseQuery.data || releaseQuery.data.length === 0 ? (
+        ) : !mergeQueueQuery.data || mergeQueueQuery.data.length === 0 ? (
           <Typography color="text.secondary">No items are queued for delivery.</Typography>
         ) : (
           <Stack spacing={1.25}>
-            {releaseQuery.data.map((item, index) => (
+            {mergeQueueQuery.data.map((item, index) => (
               <Paper key={item.id} variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
                 <Typography fontWeight={700}>
                   {index + 1}. {item.feature}

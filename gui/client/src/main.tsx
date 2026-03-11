@@ -9,7 +9,7 @@ import Workflow from './pages/Workflow';
 import ActiveWork from './pages/ActiveWork';
 import Delivery from './pages/Delivery';
 import IssueWorkspace from './pages/IssueWorkspace';
-import Accounts from './pages/Accounts';
+import Projects from './pages/Projects';
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } },
@@ -25,7 +25,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
               <Route index element={<Workflow />} />
               <Route path="active-work" element={<ActiveWork />} />
               <Route path="delivery" element={<Delivery />} />
-              <Route path="projects" element={<Accounts />} />
+              <Route path="projects" element={<Projects />} />
               <Route path="issues/:issueRef" element={<IssueWorkspace />} />
             </Route>
           </Routes>

@@ -12,8 +12,8 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   return res.json();
 }
 
-// Shop floor
-export const fetchShopFloor = () => fetchJson<ShopFloorData>('/shop-floor');
+// Dashboard
+export const fetchDashboard = () => fetchJson<DashboardData>('/dashboard');
 
 // Workflow
 export const fetchWorkflowOverview = (params?: { refresh?: boolean }) => {
@@ -44,73 +44,73 @@ export const createExecutionForIssue = (
     body: JSON.stringify(data || {}),
   });
 
-// Accounts
-export const fetchAccountsRaw = () => fetchJson<Record<string, AccountData>>('/accounts/raw');
-export const fetchAccounts = () => fetchJson<AccountRow[]>('/accounts');
-export const syncAccounts = () => fetchJson<{ synced: number }>('/accounts/sync', { method: 'POST' });
+// Projects
+export const fetchProjectsRaw = () => fetchJson<Record<string, ProjectConfig>>('/projects/raw');
+export const fetchProjects = () => fetchJson<ProjectRow[]>('/projects');
+export const syncProjects = () => fetchJson<{ synced: number }>('/projects/sync', { method: 'POST' });
 
-// Bays
-export const fetchBays = (params?: { status?: string; account?: string }) => {
+// Executions (cells)
+export const fetchExecutions = (params?: { status?: string; project?: string }) => {
   const qs = new URLSearchParams();
   if (params?.status) qs.set('status', params.status);
-  if (params?.account) qs.set('account', params.account);
+  if (params?.project) qs.set('project', params.project);
   const query = qs.toString();
-  return fetchJson<BayRow[]>(`/bays${query ? '?' + query : ''}`);
+  return fetchJson<ExecutionRow[]>(`/cells${query ? '?' + query : ''}`);
 };
 
-export const fetchBay = (id: number) => fetchJson<BayRow & { history: BayStatusHistoryRow[] }>(`/bays/${id}`);
+export const fetchExecution = (id: number) => fetchJson<ExecutionRow & { history: ExecutionStatusHistoryRow[] }>(`/cells/${id}`);
 
-export const openBay = (data: { feature: string; project: string; branch: string; scope?: object; githubIssueUrl?: string }) =>
-  fetchJson<BayRow>('/bays', { method: 'POST', body: JSON.stringify(data) });
+export const createExecution = (data: { feature: string; project: string; branch: string; scope?: object; githubIssueUrl?: string }) =>
+  fetchJson<ExecutionRow>('/cells', { method: 'POST', body: JSON.stringify(data) });
 
-export const updateBayStatus = (id: number, status: string, note?: string) =>
-  fetchJson<BayRow>(`/bays/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status, note }) });
+export const updateExecutionStatus = (id: number, status: string, note?: string) =>
+  fetchJson<ExecutionRow>(`/cells/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status, note }) });
 
-export const updateBay = (id: number, data: Partial<Pick<BayRow, 'scope' | 'blocker' | 'handoff' | 'githubIssueUrl' | 'githubPrUrl'>>) =>
-  fetchJson<BayRow>(`/bays/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
+export const updateExecution = (id: number, data: Partial<Pick<ExecutionRow, 'scope' | 'blocker' | 'handoff' | 'githubIssueUrl' | 'githubPrUrl'>>) =>
+  fetchJson<ExecutionRow>(`/cells/${id}`, { method: 'PATCH', body: JSON.stringify(data) });
 
-export const clearBay = (id: number) =>
-  fetchJson<{ deleted: BayRow }>(`/bays/${id}`, { method: 'DELETE' });
+export const deleteExecution = (id: number) =>
+  fetchJson<{ deleted: ExecutionRow }>(`/cells/${id}`, { method: 'DELETE' });
 
-// Release lane
-export const fetchReleaseLane = () => fetchJson<ReleaseLaneRow[]>('/release-lane');
-export const addToReleaseLane = (bayId: number, dependsOn?: number[]) =>
-  fetchJson<ReleaseLaneRow>('/release-lane', { method: 'POST', body: JSON.stringify({ cell_id: bayId, depends_on: dependsOn }) });
-export const reorderReleaseLane = (order: { id: number; position: number }[]) =>
-  fetchJson<ReleaseLaneRow[]>('/release-lane/reorder', { method: 'PATCH', body: JSON.stringify({ order }) });
-export const removeFromReleaseLane = (id: number) =>
-  fetchJson<{ deleted: ReleaseLaneRow }>(`/release-lane/${id}`, { method: 'DELETE' });
+// Merge queue
+export const fetchMergeQueue = () => fetchJson<MergeQueueRow[]>('/merge-queue');
+export const addToMergeQueue = (cellId: number, dependsOn?: number[]) =>
+  fetchJson<MergeQueueRow>('/merge-queue', { method: 'POST', body: JSON.stringify({ cell_id: cellId, depends_on: dependsOn }) });
+export const reorderMergeQueue = (order: { id: number; position: number }[]) =>
+  fetchJson<MergeQueueRow[]>('/merge-queue/reorder', { method: 'PATCH', body: JSON.stringify({ order }) });
+export const removeFromMergeQueue = (id: number) =>
+  fetchJson<{ deleted: MergeQueueRow }>(`/merge-queue/${id}`, { method: 'DELETE' });
 
-// Repair orders
-export const fetchRepairOrders = (params?: { account?: string; refresh?: boolean; excludeLabels?: string[] }) => {
+// Issues (GitHub)
+export const fetchIssues = (params?: { project?: string; refresh?: boolean; excludeLabels?: string[] }) => {
   const qs = new URLSearchParams();
-  if (params?.account) qs.set('account', params.account);
+  if (params?.project) qs.set('project', params.project);
   if (params?.refresh) qs.set('refresh', 'true');
   if (params?.excludeLabels && params.excludeLabels.length > 0) qs.set('excludeLabels', params.excludeLabels.join(','));
   const query = qs.toString();
-  return fetchJson<RepairOrder[]>(`/repair-orders${query ? '?' + query : ''}`);
+  return fetchJson<GitHubIssue[]>(`/issues${query ? '?' + query : ''}`);
 };
 
-// Dispatch board
-export const fetchDispatchBoardStatus = () => fetchJson<DispatchBoardStatus>('/dispatch/status');
-export const pauseDispatch = () => fetchJson<{ paused: boolean }>('/dispatch/pause', { method: 'POST' });
-export const resumeDispatch = () => fetchJson<{ paused: boolean }>('/dispatch/resume', { method: 'POST' });
-export const scanWaitingLot = () => fetchJson<{ triggered: boolean }>('/dispatch/scan', { method: 'POST' });
-export const stopDispatch = () => fetchJson<{ status: string }>('/dispatch/stop', { method: 'POST' });
-export const removeFromDispatchBoard = (issueRef: string) =>
-  fetchJson<{ removed: boolean }>(`/dispatch/queue/${encodeURIComponent(issueRef)}`, { method: 'DELETE' });
-export const stopTechnicianSession = (issueRef: string) =>
-  fetchJson<{ killed: boolean }>(`/dispatch/kill/${encodeURIComponent(issueRef)}`, { method: 'POST' });
-export const fetchDispatchLog = (issueRef: string, lines = 100) =>
-  fetchJson<{ issueRef: string; log: string }>(`/dispatch/logs/${encodeURIComponent(issueRef)}?lines=${lines}`);
+// Scheduler
+export const fetchSchedulerStatus = () => fetchJson<SchedulerStatus>('/scheduler/status');
+export const pauseScheduler = () => fetchJson<{ paused: boolean }>('/scheduler/pause', { method: 'POST' });
+export const resumeScheduler = () => fetchJson<{ paused: boolean }>('/scheduler/resume', { method: 'POST' });
+export const scanIssueQueue = () => fetchJson<{ triggered: boolean }>('/scheduler/scan', { method: 'POST' });
+export const stopScheduler = () => fetchJson<{ status: string }>('/scheduler/stop', { method: 'POST' });
+export const removeFromSchedulerQueue = (issueRef: string) =>
+  fetchJson<{ removed: boolean }>(`/scheduler/queue/${encodeURIComponent(issueRef)}`, { method: 'DELETE' });
+export const stopAgentSession = (issueRef: string) =>
+  fetchJson<{ killed: boolean }>(`/scheduler/kill/${encodeURIComponent(issueRef)}`, { method: 'POST' });
+export const fetchSessionLog = (issueRef: string, lines = 100) =>
+  fetchJson<{ issueRef: string; log: string }>(`/scheduler/logs/${encodeURIComponent(issueRef)}?lines=${lines}`);
 
 // Types
-export interface ShopFloorData {
+export interface DashboardData {
   capacity: { active: number; max: number };
   counts: Record<string, number>;
-  blockedCells: BayRow[];
-  readyPRs: BayRow[];
-  recentActivity: (BayStatusHistoryRow & { feature: string; project: string })[];
+  blockedCells: ExecutionRow[];
+  readyPRs: ExecutionRow[];
+  recentActivity: (ExecutionStatusHistoryRow & { feature: string; project: string })[];
 }
 
 export interface WorkflowExecutionSummary {
@@ -206,7 +206,7 @@ export interface WorkflowIssueUpdateInput {
   inShippingQueue?: boolean;
 }
 
-export interface AccountData {
+export interface ProjectConfig {
   repo: string;
   localPath: string;
   defaultBranch: string;
@@ -216,7 +216,7 @@ export interface AccountData {
   packages?: Record<string, { repo: string; path: string; featureTarget?: string; scopeOverrides?: object }>;
 }
 
-export interface AccountRow {
+export interface ProjectRow {
   id: number;
   name: string;
   repo: string;
@@ -229,7 +229,7 @@ export interface AccountRow {
   syncedAt: string;
 }
 
-export interface BayRow {
+export interface ExecutionRow {
   id: number;
   feature: string;
   project: string;
@@ -244,7 +244,7 @@ export interface BayRow {
   updatedAt: string;
 }
 
-export interface BayStatusHistoryRow {
+export interface ExecutionStatusHistoryRow {
   id: number;
   cellId: number;
   fromStatus: string | null;
@@ -253,7 +253,7 @@ export interface BayStatusHistoryRow {
   note: string | null;
 }
 
-export interface DispatchSession {
+export interface SchedulerSession {
   issueRef: string;
   repo: string;
   number: number;
@@ -270,7 +270,7 @@ export interface DispatchSession {
   latestActivityType: string | null;
 }
 
-export interface DispatchQueueItem {
+export interface SchedulerQueueItem {
   issueRef: string;
   repo: string;
   number: number;
@@ -278,7 +278,7 @@ export interface DispatchQueueItem {
   discoveredAt: string;
 }
 
-export interface DispatchCompletion {
+export interface SchedulerCompletion {
   issueRef: string;
   repo: string;
   number: number;
@@ -290,20 +290,20 @@ export interface DispatchCompletion {
   logFile: string;
 }
 
-export interface DispatchBoardStatus {
+export interface SchedulerStatus {
   status: string;
   startedAt: string | null;
   lastScanAt: string | null;
   paused: boolean;
-  activeSessions: DispatchSession[];
+  activeSessions: SchedulerSession[];
   activeCount: number;
   maxSessions: number;
-  queue: DispatchQueueItem[];
+  queue: SchedulerQueueItem[];
   queueSize: number;
-  completed: DispatchCompletion[];
+  completed: SchedulerCompletion[];
 }
 
-export interface RepairOrder {
+export interface GitHubIssue {
   id: number;
   number: number;
   title: string;
@@ -319,7 +319,7 @@ export interface RepairOrder {
   inCell: boolean;
 }
 
-export interface ReleaseLaneRow {
+export interface MergeQueueRow {
   id: number;
   cellId: number;
   position: number;

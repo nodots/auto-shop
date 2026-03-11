@@ -2,10 +2,10 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  fetchDispatchBoardStatus,
+  fetchSchedulerStatus,
   fetchWorkflowOverview,
   updateWorkflowIssue,
-  type DispatchSession,
+  type SchedulerSession,
   type WorkflowIssueSummary,
 } from '../serviceDeskApi';
 import {
@@ -60,9 +60,9 @@ export default function Workflow() {
     queryKey: ['workflow-overview'],
     queryFn: () => fetchWorkflowOverview(),
   });
-  const dispatchQuery = useQuery({
-    queryKey: ['dispatch-board'],
-    queryFn: fetchDispatchBoardStatus,
+  const schedulerQuery = useQuery({
+    queryKey: ['scheduler'],
+    queryFn: fetchSchedulerStatus,
     refetchInterval: 5000,
     retry: false,
   });
@@ -93,7 +93,7 @@ export default function Workflow() {
     count: workflowQuery.data.totals[state],
   }));
   const sessionsByIssueRef = new Map(
-    (dispatchQuery.data?.activeSessions || []).map((session) => [session.issueRef, session])
+    (schedulerQuery.data?.activeSessions || []).map((session) => [session.issueRef, session])
   );
 
   async function handleRefresh() {
@@ -345,7 +345,7 @@ function ProjectRow({
     states: Record<WorkflowState, WorkflowIssueSummary[]>;
   };
   rowIndex: number;
-  sessionsByIssueRef: Map<string, DispatchSession>;
+  sessionsByIssueRef: Map<string, SchedulerSession>;
 }) {
   const striped = rowIndex % 2 === 1;
 
@@ -436,7 +436,7 @@ function CompactIssueRow({
   session,
 }: {
   issue: WorkflowIssueSummary;
-  session?: DispatchSession;
+  session?: SchedulerSession;
 }) {
   const theme = useTheme();
   const queryClient = useQueryClient();

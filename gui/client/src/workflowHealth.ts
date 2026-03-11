@@ -1,6 +1,6 @@
 import type { ChipProps } from '@mui/material/Chip';
 import type {
-  DispatchSession,
+  SchedulerSession,
   WorkflowIssueDetail,
   WorkflowIssueSummary,
 } from './serviceDeskApi';
@@ -36,7 +36,7 @@ export function getIssueLastMovementAt(issue: WorkflowIssueSummary | WorkflowIss
 
 export function getIssueHealth(
   issue: WorkflowIssueSummary | WorkflowIssueDetail,
-  session?: DispatchSession | null
+  session?: SchedulerSession | null
 ): WorkflowHealth | null {
   if (issue.workflowState !== 'in-progress') {
     return null;

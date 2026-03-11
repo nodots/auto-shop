@@ -1,10 +1,10 @@
 import { Link } from 'react-router-dom';
 import { useQueries, useQuery, type UseQueryResult } from '@tanstack/react-query';
 import {
-  fetchDispatchLog,
-  fetchDispatchBoardStatus,
+  fetchSessionLog,
+  fetchSchedulerStatus,
   fetchWorkflowOverview,
-  type DispatchSession,
+  type SchedulerSession,
   type WorkflowIssueSummary,
 } from '../serviceDeskApi';
 import WorkflowStateBadge from '../components/WorkflowStateBadge';
@@ -18,7 +18,7 @@ import Stack from '@mui/material/Stack';
 import Typography from '@mui/material/Typography';
 import Chip from '@mui/material/Chip';
 
-type DispatchLogResult = {
+type SessionLogResult = {
   issueRef: string;
   log: string;
 };
@@ -44,9 +44,9 @@ export default function ActiveWork() {
     queryKey: ['workflow-overview'],
     queryFn: () => fetchWorkflowOverview(),
   });
-  const dispatchQuery = useQuery({
-    queryKey: ['dispatch-board'],
-    queryFn: fetchDispatchBoardStatus,
+  const schedulerQuery = useQuery({
+    queryKey: ['scheduler'],
+    queryFn: fetchSchedulerStatus,
     refetchInterval: 5000,
   });
 
@@ -61,17 +61,17 @@ export default function ActiveWork() {
     workflowQuery.data.projects.map((project) => project.states['in-progress'])
   );
   const blockedIssues = flatten(workflowQuery.data.projects.map((project) => project.states.blocked));
-  const activeSessions = dispatchQuery.data?.activeSessions || [];
+  const activeSessions = schedulerQuery.data?.activeSessions || [];
   const sessionsByIssueRef = new Map(activeSessions.map((session) => [session.issueRef, session]));
   const logQueries = useQueries({
     queries: inProgressIssues.map((issue) => ({
-      queryKey: ['dispatch-log', issue.issueRef],
-      queryFn: () => fetchDispatchLog(issue.issueRef, 40),
+      queryKey: ['session-log', issue.issueRef],
+      queryFn: () => fetchSessionLog(issue.issueRef, 40),
       enabled: sessionsByIssueRef.has(issue.issueRef),
       refetchInterval: 5000,
       retry: false,
     })),
-  }) as UseQueryResult<DispatchLogResult, Error>[];
+  }) as UseQueryResult<SessionLogResult, Error>[];
   const logsByIssueRef = new Map(
     inProgressIssues.map((issue, index) => [issue.issueRef, logQueries[index]])
   );
@@ -109,21 +109,21 @@ export default function ActiveWork() {
         <Typography variant="h6" fontWeight={800} gutterBottom>
           Runtime Sessions
         </Typography>
-        {dispatchQuery.isLoading ? (
+        {schedulerQuery.isLoading ? (
           <CircularProgress size={24} />
-        ) : dispatchQuery.error ? (
+        ) : schedulerQuery.error ? (
           <Alert severity="info">
-            Dispatch runtime is unavailable. The workflow UI still works without it.
+            Scheduler is unavailable. The workflow UI still works without it.
           </Alert>
-        ) : !dispatchQuery.data ? null : (
+        ) : !schedulerQuery.data ? null : (
           <Stack spacing={1.25}>
             <Typography color="text.secondary">
-              {dispatchQuery.data.activeCount}/{dispatchQuery.data.maxSessions} sessions active
+              {schedulerQuery.data.activeCount}/{schedulerQuery.data.maxSessions} sessions active
             </Typography>
-            {dispatchQuery.data.activeSessions.length === 0 ? (
+            {schedulerQuery.data.activeSessions.length === 0 ? (
               <Typography color="text.secondary">No active sessions.</Typography>
             ) : (
-              dispatchQuery.data.activeSessions.map((session) => (
+              schedulerQuery.data.activeSessions.map((session) => (
                 <Paper key={session.issueRef} variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
                   <Stack spacing={0.75}>
                     <Typography fontWeight={700}>{session.title}</Typography>
@@ -166,8 +166,8 @@ function StateSection({
 }: {
   title: string;
   issues: WorkflowIssueSummary[];
-  sessionsByIssueRef?: Map<string, DispatchSession>;
-  logsByIssueRef?: Map<string, UseQueryResult<DispatchLogResult, Error>>;
+  sessionsByIssueRef?: Map<string, SchedulerSession>;
+  logsByIssueRef?: Map<string, UseQueryResult<SessionLogResult, Error>>;
 }) {
   return (
     <Paper sx={{ p: 2.5, borderRadius: 3 }}>
@@ -225,8 +225,8 @@ function RuntimeLogPreview({
   session,
   logQuery,
 }: {
-  session: DispatchSession;
-  logQuery?: UseQueryResult<DispatchLogResult, Error>;
+  session: SchedulerSession;
+  logQuery?: UseQueryResult<SessionLogResult, Error>;
 }) {
   return (
     <Paper

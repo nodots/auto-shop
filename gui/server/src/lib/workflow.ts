@@ -268,6 +268,10 @@ function compareDateDesc(a?: string | null, b?: string | null) {
   return new Date(b || 0).getTime() - new Date(a || 0).getTime();
 }
 
+function compareDateAsc(a?: string | null, b?: string | null) {
+  return new Date(a || 0).getTime() - new Date(b || 0).getTime();
+}
+
 function normalizeCell(cell: CellRow | undefined): WorkflowExecutionSummary | null {
   if (!cell) return null;
 
@@ -600,7 +604,7 @@ export async function getWorkflowOverview(options?: { refresh?: boolean }) {
   const projects = projectNames.map((projectName) => {
     const projectIssues = issues
       .filter((issue) => issue.project === projectName)
-      .sort((a, b) => compareDateDesc(a.updatedAt, b.updatedAt));
+      .sort((a, b) => compareDateAsc(a.updatedAt, b.updatedAt));
 
     const states = Object.fromEntries(
       WORKFLOW_STATES.map((state) => [

@@ -66,6 +66,8 @@ function summarizeIssueSupport(
   return detail;
 }
 
+const matrixStates = WORKFLOW_STATES.filter((state) => state !== 'done');
+
 export default function Workflow() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
@@ -208,12 +210,12 @@ export default function Workflow() {
                 <Box
                   sx={{
                     display: 'grid',
-                    gridTemplateColumns: 'repeat(9, minmax(0, 1fr))',
+                    gridTemplateColumns: `repeat(${matrixStates.length + 1}, minmax(0, 1fr))`,
                     alignItems: 'stretch',
                   }}
                 >
                   <MatrixHeaderCell label="Project" isProject />
-                  {WORKFLOW_STATES.map((state) => (
+                  {matrixStates.map((state) => (
                     <MatrixHeaderCell
                       key={state}
                       label={workflowStateLabels[state]}
@@ -277,7 +279,7 @@ export default function Workflow() {
                     )}
                   </Stack>
 
-                  {WORKFLOW_STATES.map((state) => (
+                  {matrixStates.map((state) => (
                     <Paper key={`${project.name}-${state}`} variant="outlined" sx={{ p: 1, borderRadius: 2 }}>
                       <Stack spacing={0.75}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 1 }}>
@@ -425,7 +427,7 @@ function ProjectRow({
           )}
         </Stack>
       </Box>
-      {WORKFLOW_STATES.map((state) => (
+      {matrixStates.map((state) => (
         <Box
           key={`${project.name}-${state}`}
           sx={{
